@@ -1,0 +1,2433 @@
+<!DOCTYPE html>
+<html lang="ru" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>NeoBank — iOS Edition (Demo)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ios: {
+              bg: '#F2F2F7',
+              card: '#FFFFFF',
+              darkBg: '#000000',
+              darkCard: '#1C1C1E',
+              darkCard2: '#2C2C2E',
+              blue: '#007AFF',
+              green: '#34C759',
+              red: '#FF3B30',
+              orange: '#FF9500',
+              indigo: '#5856D6',
+              gray: '#8E8E93',
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Display"', '"SF Pro Text"', 'Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    :root {
+      --sat: env(safe-area-inset-top, 0px);
+      --sab: env(safe-area-inset-bottom, 0px);
+    }
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .pb-safe { padding-bottom: calc(0.5rem + var(--sab)); }
+    .pt-safe { padding-top: var(--sat); }
+
+    /* Эффект блика Apple Card */
+    .card-sheen {
+      background-image: linear-gradient(125deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.04) 38%, transparent 55%, rgba(255,255,255,0.08) 100%);
+    }
+
+    /* Анимации iOS */
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-9px); }
+      40%, 80% { transform: translateX(9px); }
+    }
+    .animate-shake { animation: shake 0.36s cubic-bezier(.36,.07,.19,.97); }
+
+    @keyframes sheetUp {
+      0% { opacity: 0; transform: translateY(28px) scale(0.98); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-sheet { animation: sheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+    @keyframes fadeSlide {
+      0% { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      100% { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .animate-toast { animation: fadeSlide 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+    /* Ползунок в стиле iOS */
+    input[type="range"].ios-slider {
+      -webkit-appearance: none;
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(120, 120, 128, 0.22);
+      outline: none;
+    }
+    input[type="range"].ios-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #FFFFFF;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.22), 0 0 1px rgba(0,0,0,0.15);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="bg-[#F2F2F7] dark:bg-black text-slate-950 dark:text-white transition-colors duration-300 min-h-screen">
+
+  <!-- ======================================================================= -->
+  <!-- ЭКРАН БЛОКИРОВКИ (iOS PASSCODE)                                         -->
+  <!-- ======================================================================= -->
+  <div id="lock-screen" class="fixed inset-0 z-50 text-white flex flex-col items-center justify-between py-12 px-6 overflow-hidden select-none" style="background: radial-gradient(circle at 20% 15%, #1e3a8a 0%, #0f172a 48%, #020617 100%);">
+    <div class="pt-safe text-center mt-4 space-y-3">
+      <div class="w-14 h-14 rounded-[18px] bg-white/10 backdrop-blur-xl border border-white/15 flex items-center justify-center mx-auto shadow-2xl">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center justify-center gap-2">
+          <h1 class="text-xl font-bold tracking-tight">NeoBank</h1>
+          <span class="text-[10px] font-semibold uppercase tracking-wider bg-white/15 text-blue-200 px-2 py-0.5 rounded-full backdrop-blur-md">Demo</span>
+        </div>
+        <p class="text-white/60 text-[13px] mt-1">Введите код-пароль (<span class="text-white/90 font-semibold tabular-nums">1234</span>)</p>
+      </div>
+    </div>
+
+    <div class="flex flex-col items-center w-full max-w-[290px]">
+      <div id="pin-dots" class="flex gap-5 mb-10">
+        <div class="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/50 transition-all duration-150"></div>
+        <div class="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/50 transition-all duration-150"></div>
+        <div class="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/50 transition-all duration-150"></div>
+        <div class="w-3.5 h-3.5 rounded-full border-[1.5px] border-white/50 transition-all duration-150"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-x-6 gap-y-4 w-full justify-items-center">
+        ${[1,2,3,4,5,6,7,8,9].map(n => `
+          <button onclick="pinPress('${n}')" class="w-[74px] h-[74px] rounded-full bg-white/[0.11] hover:bg-white/[0.18] active:bg-white/[0.34] backdrop-blur-md text-[28px] font-normal tabular-nums transition duration-150 flex items-center justify-center border border-white/[0.06]">${n}</button>
+        `).join('')}
+        <button onclick="biometricUnlock()" title="Вход по Face ID (заглушка)" class="w-[74px] h-[74px] rounded-full hover:bg-white/10 active:scale-95 text-white/90 transition flex items-center justify-center">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="1.6" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3.75H6A2.25 2.25 0 003.75 6v1.5M16.5 3.75H18A2.25 2.25 0 0120.25 6v1.5m0 9V18A2.25 2.25 0 0118 20.25h-1.5m-9 0H6A2.25 2.25 0 013.75 18v-1.5M9 9.75v.75m6-.75v.75m-3 0v2.25c0 .414-.336.75-.75.75H11.25m-1.5 2.25a3.75 3.75 0 004.5 0"/>
+          </svg>
+        </button>
+        <button onclick="pinPress('0')" class="w-[74px] h-[74px] rounded-full bg-white/[0.11] hover:bg-white/[0.18] active:bg-white/[0.34] backdrop-blur-md text-[28px] font-normal tabular-nums transition duration-150 flex items-center justify-center border border-white/[0.06]">0</button>
+        <button onclick="pinBackspace()" class="w-[74px] h-[74px] rounded-full hover:bg-white/10 active:scale-95 text-white/80 transition flex items-center justify-center">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="1.7" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12l2.25-2.25M14.25 12L12 14.25m-2.58 4.92l-6.375-6.375a1.125 1.125 0 010-1.59L9.42 4.83c.211-.211.498-.33.796-.33H19.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25h-9.284c-.298 0-.585-.119-.796-.33z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="text-[11px] text-white/40 text-center">
+      Демонстрационная песочница • Все данные локальны
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- ОСНОВНОЙ ИНТЕРФЕЙС                                                      -->
+  <!-- ======================================================================= -->
+  <div id="app" class="hidden min-h-screen flex flex-col md:flex-row max-w-[1280px] mx-auto md:py-5 md:px-5 gap-6">
+
+    <!-- macOS / iPadOS САЙДБАР (ДЕСКТОП) -->
+    <aside class="hidden md:flex flex-col w-[264px] shrink-0 bg-white/85 dark:bg-[#1C1C1E]/90 backdrop-blur-2xl rounded-[28px] p-4 shadow-[0_2px_20px_rgba(0,0,0,0.04)] border border-black/[0.05] dark:border-white/[0.08] h-[calc(100vh-2.5rem)] sticky top-5">
+      <div class="flex items-center justify-between px-2.5 pt-1 pb-5 border-b border-black/[0.05] dark:border-white/[0.07]">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-[12px] bg-gradient-to-br from-[#007AFF] to-[#5856D6] flex items-center justify-center text-white shadow-md shadow-blue-500/25">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"/></svg>
+          </div>
+          <div>
+            <div class="font-bold text-[16px] tracking-tight leading-none">NeoBank</div>
+            <div class="text-[10px] font-semibold text-[#8E8E93] mt-1">iOS Sandbox</div>
+          </div>
+        </div>
+        <button onclick="state.darkMode=!state.darkMode; saveState(); render();" title="Сменить тему" id="desktop-theme-btn" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-slate-600 dark:text-slate-300 hover:scale-105 transition"></button>
+      </div>
+
+      <nav id="desktop-nav" class="flex-1 space-y-1 py-4"></nav>
+
+      <div class="pt-3 border-t border-black/[0.05] dark:border-white/[0.07] space-y-1">
+        <button onclick="openSupportModal()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] text-[13px] font-medium text-slate-700 dark:text-slate-200 hover:bg-black/[0.04] dark:hover:bg-white/[0.06] transition">
+          <span class="w-5 h-5 flex items-center justify-center text-[#34C759]" id="sidebar-chat-icon"></span>
+          <span>Поддержка 24/7</span>
+        </button>
+        <button onclick="lockApp()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] text-[13px] font-medium text-[#FF3B30] hover:bg-[#FF3B30]/10 transition">
+          <span class="w-5 h-5 flex items-center justify-center" id="sidebar-lock-icon"></span>
+          <span>Заблокировать</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ОСНОВНАЯ КОЛОНКА КОНТЕНТА -->
+    <main class="flex-1 flex flex-col min-w-0 pb-28 md:pb-8">
+
+      <!-- STICKY iOS TOP NAVIGATION BAR -->
+      <header class="sticky top-0 z-20 pt-safe bg-[#F2F2F7]/85 dark:bg-black/85 backdrop-blur-xl px-4 py-3 md:px-1 md:pt-0 md:bg-transparent md:dark:bg-transparent md:backdrop-blur-none md:static">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <button onclick="navigate('profile')" class="w-10 h-10 rounded-full bg-gradient-to-br from-[#5856D6] to-[#007AFF] text-white text-[13px] font-bold flex items-center justify-center shadow-sm active:scale-95 transition">
+              АС
+            </button>
+            <div>
+              <div class="text-[12px] text-[#8E8E93] font-medium flex items-center gap-1.5">
+                <span>Александр Соколов</span>
+                <span class="text-[9px] font-bold uppercase tracking-wider bg-[#007AFF]/12 text-[#007AFF] px-1.5 py-0.5 rounded-md">Demo</span>
+              </div>
+              <h1 id="header-title" class="font-bold text-[22px] md:text-[26px] tracking-tight leading-tight">Главная</h1>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <button onclick="togglePrivacy()" id="privacy-btn" title="Скрыть или показать балансы" class="w-9 h-9 rounded-full bg-white/90 dark:bg-[#1C1C1E] border border-black/[0.05] dark:border-white/[0.08] flex items-center justify-center text-slate-700 dark:text-slate-200 shadow-xs active:scale-95 transition"></button>
+            <button onclick="openNotificationsModal()" id="notif-btn" title="Уведомления" class="relative w-9 h-9 rounded-full bg-white/90 dark:bg-[#1C1C1E] border border-black/[0.05] dark:border-white/[0.08] flex items-center justify-center text-slate-700 dark:text-slate-200 shadow-xs active:scale-95 transition"></button>
+            <button onclick="openSupportModal()" id="mobile-chat-btn" title="Чат с поддержкой" class="md:hidden w-9 h-9 rounded-full bg-white/90 dark:bg-[#1C1C1E] border border-black/[0.05] dark:border-white/[0.08] flex items-center justify-center text-[#007AFF] shadow-xs active:scale-95 transition"></button>
+          </div>
+        </div>
+      </header>
+
+      <!-- КОНТЕЙНЕР ЭКРАНОВ -->
+      <div id="view-container" class="px-4 md:px-1 space-y-5 mt-1"></div>
+    </main>
+
+    <!-- МОБИЛЬНЫЙ iOS TAB BAR -->
+    <nav id="mobile-nav" class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/85 dark:bg-[#1C1C1E]/85 backdrop-blur-2xl border-t border-black/[0.07] dark:border-white/[0.1] flex justify-around items-center pt-2 px-2 pb-safe"></nav>
+  </div>
+
+  <!-- МОДАЛЬНЫЕ ОКНА -->
+  <div id="modal-root"></div>
+
+  <!-- iOS TOAST УВЕДОМЛЕНИЯ (DYNAMIC ISLAND STYLE) -->
+  <div id="toast-container" class="fixed top-4 inset-x-0 z-[70] flex flex-col items-center gap-2 pointer-events-none px-4"></div>
+
+  <script>
+    // =========================================================================
+    // 1. БИБЛИОТЕКА ВЕКТОРНЫХ SVG ИКОНОК (В СТИЛЕ APPLE SF SYMBOLS)
+    // =========================================================================
+    const SVG_ICONS = {
+      home: `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>`,
+      transfers: `<path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>`,
+      analytics: `<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6a7.5 7.5 0 107.5 7.5h-7.5V6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 10.5H21A7.5 7.5 0 0013.5 3v7.5z"/>`,
+      products: `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>`,
+      profile: `<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>`,
+      eye: `<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>`,
+      eyeOff: `<path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"/>`,
+      bell: `<path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>`,
+      chat: `<path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>`,
+      lock: `<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>`,
+      sun: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>`,
+      moon: `<path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>`,
+      plus: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>`,
+      send: `<path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>`,
+      refresh: `<path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>`,
+      qr: `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z"/><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h.75v.75h-.75v-.75z"/>`,
+      close: `<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>`,
+      check: `<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>`,
+      chevronRight: `<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>`,
+      copy: `<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/>`,
+      snowflake: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25v19.5M4.97 6.375l14.06 11.25M19.03 6.375L4.97 17.625M9.75 4.5L12 6.75 14.25 4.5M9.75 19.5L12 17.25 14.25 19.5M4.5 9.75L7.25 10.5 6.5 7.75M19.5 14.25L16.75 13.5 17.5 16.25M19.5 9.75L16.75 10.5 17.5 7.75M4.5 14.25L7.25 13.5 6.5 16.25"/>`,
+      shield: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>`,
+      pdf: `<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>`,
+      download: `<path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>`,
+      printer: `<path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>`,
+      search: `<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>`,
+      sparkle: `<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>`,
+      card: `<path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"/>`,
+      trash: `<path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>`,
+      // Категории и Цели
+      food: `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 10.5h13.5v4.125c0 2.9-2.35 5.25-5.25 5.25H9c-2.9 0-5.25-2.35-5.25-5.25V10.5zm13.5 0h1.875a2.625 2.625 0 010 5.25H17.25M6.75 6.75c0-.966.784-1.75 1.75-1.75M10.5 6.75c0-.966.784-1.75 1.75-1.75M14.25 6.75c0-.966.784-1.75 1.75-1.75"/>`,
+      transport: `<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>`,
+      shopping: `<path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm7.5 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>`,
+      services: `<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/>`,
+      transfer: `<path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25"/>`,
+      income: `<path stroke-linecap="round" stroke-linejoin="round" d="M19.5 4.5l-15 15m0 0h11.25m-11.25 0V8.25"/>`,
+      plane: `<path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>`,
+      laptop: `<path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"/>`,
+      target: `<path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z"/>`,
+      house: `<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205l3 1m1.5.5l-1.5-.5M6.75 7.364V3h-3v18m3-13.636l10.5-3.819"/>`,
+      nfc: `<path stroke-linecap="round" stroke-linejoin="round" d="M8.288 15.038a5.25 5.25 0 017.424 0M5.106 11.856c3.807-3.808 9.98-3.808 13.788 0M1.924 8.674c5.565-5.565 14.587-5.565 20.152 0"/>`,
+      phone: `<path stroke-linecap="round" stroke-linejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3"/>`,
+    };
+
+    function icon(name, cls = 'w-5 h-5', strokeWidth = '1.9') {
+      const path = SVG_ICONS[name] || SVG_ICONS.target;
+      return `<svg class="${cls} shrink-0" fill="none" stroke="currentColor" stroke-width="${strokeWidth}" viewBox="0 0 24 24">${path}</svg>`;
+    }
+
+    // Декоративный чип карты
+    function cardChipSVG() {
+      return `
+        <svg class="w-9 h-7 opacity-85" viewBox="0 0 40 28" fill="none">
+          <rect x="0.5" y="0.5" width="39" height="27" rx="5.5" fill="url(#chipGrad)" stroke="rgba(255,255,255,0.4)"/>
+          <path d="M13 1V27M27 1V27M1 10H13M27 10H39M1 18H13M27 18H39M13 14H27" stroke="rgba(0,0,0,0.22)" stroke-width="1"/>
+          <defs>
+            <linearGradient id="chipGrad" x1="0" y1="0" x2="40" y2="28" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#FDE68A"/><stop offset="0.5" stop-color="#F59E0B"/><stop offset="1" stop-color="#D97706"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      `;
+    }
+
+    // =========================================================================
+    // 2. ДАННЫЕ И СОСТОЯНИЕ ПРИЛОЖЕНИЯ
+    // =========================================================================
+    const STORAGE_KEY = 'neobank_ios_demo_v2';
+    const USD_RATE = 94.50;
+
+    const CATEGORIES = {
+      food:      { label: 'Еда и кафе',     color: '#FF9500', bg: 'bg-[#FF9500]/12 text-[#FF9500]', icon: 'food', mcc: '5812' },
+      transport: { label: 'Транспорт',      color: '#007AFF', bg: 'bg-[#007AFF]/12 text-[#007AFF]', icon: 'transport', mcc: '4121' },
+      shopping:  { label: 'Покупки',        color: '#AF52DE', bg: 'bg-[#AF52DE]/12 text-[#AF52DE]', icon: 'shopping', mcc: '5311' },
+      services:  { label: 'Услуги и ЖКХ',   color: '#5856D6', bg: 'bg-[#5856D6]/12 text-[#5856D6]', icon: 'services', mcc: '4900' },
+      transfer:  { label: 'Переводы',       color: '#8E8E93', bg: 'bg-[#8E8E93]/15 text-slate-600 dark:text-slate-300', icon: 'transfer', mcc: '4829' },
+      income:    { label: 'Поступления',    color: '#34C759', bg: 'bg-[#34C759]/12 text-[#34C759]', icon: 'income', mcc: '6012' },
+    };
+
+    const CONTACTS = [
+      { id: 'c1', name: 'Мама',       initials: 'ММ', phone: '+7 (916) 555-01-12', bank: 'Сбербанк',   grad: 'from-rose-500 to-pink-600' },
+      { id: 'c2', name: 'Иван П.',    initials: 'ИП', phone: '+7 (903) 412-88-30', bank: 'Т-Банк',     grad: 'from-blue-500 to-indigo-600' },
+      { id: 'c3', name: 'Алина К.',   initials: 'АК', phone: '+7 (926) 774-19-05', bank: 'Альфа-Банк', grad: 'from-violet-500 to-purple-600' },
+      { id: 'c4', name: 'Аренда кв.', initials: 'АР', phone: '+7 (999) 100-20-30', bank: 'ВТБ',        grad: 'from-amber-500 to-orange-600' },
+    ];
+
+    const CASHBACK_POOL = [
+      { id: 'food',      name: 'Рестораны и кафе',       rate: 5, icon: 'food' },
+      { id: 'transport', name: 'Такси и транспорт',      rate: 7, icon: 'transport' },
+      { id: 'shopping',  name: 'Одежда и маркетплейсы',  rate: 3, icon: 'shopping' },
+      { id: 'services',  name: 'ЖКХ и мобильная связь',  rate: 2, icon: 'services' },
+      { id: 'all',       name: 'Все остальные покупки',  rate: 1, icon: 'card' },
+    ];
+
+    function getDefaultState() {
+      const now = Date.now();
+      const day = 86400000;
+      return {
+        pin: '1234',
+        darkMode: false,
+        hideBalances: false,
+        cashbackBalance: 1420,
+        selectedCashbackIds: ['food', 'transport', 'all'],
+        cards: [
+          {
+            id: 'card_rub', name: 'Neo Black', type: 'Дебетовая', currency: 'RUB',
+            balance: 148540.50, number: '4276 8800 1234 9042', expiry: '09/29', cvv: '842',
+            frozen: false, limit: 300000,
+            gradient: 'from-[#1C1C1E] via-[#2C2C2E] to-[#0A0A0C]'
+          },
+          {
+            id: 'card_usd', name: 'Travel USD', type: 'Валютная', currency: 'USD',
+            balance: 1250.00, number: '5469 3200 7741 3318', expiry: '11/28', cvv: '319',
+            frozen: false, limit: 5000,
+            gradient: 'from-[#007AFF] via-[#3F51B5] to-[#5856D6]'
+          },
+          {
+            id: 'card_virt', name: 'Virtual Pay', type: 'Виртуальная', currency: 'RUB',
+            balance: 15200.00, number: '2200 7004 5190 1104', expiry: '04/27', cvv: '507',
+            frozen: false, limit: 50000,
+            gradient: 'from-[#10B981] via-[#059669] to-[#047857]'
+          }
+        ],
+        goals: [
+          { id: 'g1', title: 'Отпуск в горах', icon: 'plane', target: 150000, current: 64000 },
+          { id: 'g2', title: 'Новый MacBook', icon: 'laptop', target: 180000, current: 112500 },
+        ],
+        transactions: [
+          { id: '884210', title: 'Surf Coffee', subtitle: 'Оплата картой •9042', cardLast4: '9042', amount: -480, currency: 'RUB', category: 'food', date: now - 3600000 * 2, status: 'Исполнено', cashback: 24, authCode: 'A91F04' },
+          { id: '884195', title: 'Зарплата (Аванс)', subtitle: 'ООО «ТехноДемо»', cardLast4: '9042', amount: 85000, currency: 'RUB', category: 'income', date: now - day * 1, status: 'Зачислено', cashback: 0, authCode: 'SBP771' },
+          { id: '884162', title: 'Яндекс Go', subtitle: 'Поездка •9042', cardLast4: '9042', amount: -760, currency: 'RUB', category: 'transport', date: now - day * 1 - 7200000, status: 'Исполнено', cashback: 53, authCode: 'Y55210' },
+          { id: '884120', title: 'Ozon Маркетплейс', subtitle: 'Онлайн-покупка •1104', cardLast4: '1104', amount: -4390, currency: 'RUB', category: 'shopping', date: now - day * 2, status: 'Исполнено', cashback: 44, authCode: 'OZ9021' },
+          { id: '884089', title: 'Перевод: Иван П.', subtitle: 'Т-Банк (СБП)', cardLast4: '9042', amount: -3500, currency: 'RUB', category: 'transfer', date: now - day * 3, status: 'Исполнено', cashback: 0, authCode: 'SP0091' },
+          { id: '884014', title: 'МТС Связь', subtitle: '+7 (916) ***-**-99', cardLast4: '9042', amount: -850, currency: 'RUB', category: 'services', date: now - day * 4, status: 'Исполнено', cashback: 0, authCode: 'MT4482' },
+          { id: '883970', title: 'ВкусВилл', subtitle: 'Супермаркет •9042', cardLast4: '9042', amount: -2840.50, currency: 'RUB', category: 'food', date: now - day * 5, status: 'Исполнено', cashback: 28, authCode: 'VV3301' },
+        ],
+        notifications: [
+          { id: 'n1', title: 'NeoBank iOS Edition', text: 'Нажмите на любую трату в истории, чтобы открыть официальный PDF-чек и сохранить его.', time: 'Только что', unread: true },
+          { id: 'n2', title: 'Начислен кэшбэк', text: 'Накоплено 1 420 ₽. Вы можете вывести их на карту Neo Black в один тап.', time: 'Вчера', unread: true },
+        ],
+        supportChat: [
+          { sender: 'bot', text: 'Здравствуйте! Я виртуальный ассистент NeoBank. Можете спросить меня про карты, переводы, PDF-чеки, кэшбэк или курс валют.', time: 'Сейчас' }
+        ]
+      };
+    }
+
+    let state = loadState();
+    let currentView = 'dashboard';
+    let currentPinInput = '';
+    let selectedCardDetailsId = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : getDefaultState();
+      } catch {
+        return getDefaultState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    // =========================================================================
+    // 3. УТИЛИТЫ, QR-ГЕНЕРАТОР И ДВИЖОК PDF-ЧЕКОВ
+    // =========================================================================
+    function escapeHTML(str) {
+      return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+    }
+
+    function formatMoney(amount, currency = 'RUB', forceShow = false) {
+      if (state.hideBalances && !forceShow) {
+        return currency === 'USD' ? '$ ••••' : '•••• ₽';
+      }
+      const sym = currency === 'USD' ? '$' : '₽';
+      const formatted = new Intl.NumberFormat('ru-RU', {
+        minimumFractionDigits: amount % 1 !== 0 ? 2 : 0,
+        maximumFractionDigits: 2
+      }).format(Math.abs(amount));
+      const sign = amount < 0 ? '−' : '';
+      return currency === 'USD' ? `${sign}$${formatted}` : `${sign}${formatted} ${sym}`;
+    }
+
+    function formatDate(ts) {
+      const d = new Date(ts);
+      const today = new Date();
+      const yesterday = new Date(Date.now() - 86400000);
+      const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      if (d.toDateString() === today.toDateString()) return `Сегодня, ${time}`;
+      if (d.toDateString() === yesterday.toDateString()) return `Вчера, ${time}`;
+      return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }) + `, ${time}`;
+    }
+
+    function formatFullDate(ts) {
+      return new Date(ts).toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+    }
+
+    function getTotalBalanceRUB() {
+      return state.cards.reduce((sum, c) => sum + (c.currency === 'USD' ? c.balance * USD_RATE : c.balance), 0);
+    }
+
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      const dotColor = type === 'error' ? 'bg-[#FF3B30]' : type === 'info' ? 'bg-[#007AFF]' : 'bg-[#34C759]';
+      el.className = `bg-[#1C1C1E]/95 dark:bg-white/95 text-white dark:text-slate-950 backdrop-blur-xl px-4 py-2.5 rounded-full shadow-xl text-[13px] font-medium flex items-center gap-2.5 animate-toast pointer-events-auto border border-white/10 dark:border-black/10`;
+      el.innerHTML = `<span class="w-2 h-2 rounded-full ${dotColor} shrink-0"></span><span>${escapeHTML(message)}</span>`;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        el.style.transform = 'translateY(-6px)';
+        el.style.transition = 'all 0.25s ease';
+        setTimeout(() => el.remove(), 250);
+      }, 2600);
+    }
+
+    function calculateCashback(amount, category) {
+      if (amount <= 0) return 0;
+      const isSelected = state.selectedCashbackIds.includes(category);
+      const poolItem = CASHBACK_POOL.find(p => p.id === category);
+      if (isSelected && poolItem) return Math.floor(amount * (poolItem.rate / 100));
+      if (state.selectedCashbackIds.includes('all')) return Math.floor(amount * 0.01);
+      return 0;
+    }
+
+    // Генерация детерминированной матрицы QR-кода (21x21) из ID операции
+    function buildQRMatrix(seedStr) {
+      const size = 21;
+      const m = Array.from({ length: size }, () => Array(size).fill(0));
+      const drawFinder = (r, c) => {
+        for (let i = 0; i < 7; i++) {
+          for (let j = 0; j < 7; j++) {
+            const border = i === 0 || i === 6 || j === 0 || j === 6;
+            const inner = i >= 2 && i <= 4 && j >= 2 && j <= 4;
+            m[r + i][c + j] = (border || inner) ? 1 : 0;
+          }
+        }
+      };
+      drawFinder(0, 0);
+      drawFinder(0, size - 7);
+      drawFinder(size - 7, 0);
+
+      let hash = 2166136261;
+      for (let i = 0; i < seedStr.length; i++) {
+        hash ^= seedStr.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+      }
+
+      for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+          const inFinder = (r < 8 && c < 8) || (r < 8 && c >= size - 8) || (r >= size - 8 && c < 8);
+          if (inFinder) continue;
+          hash = Math.imul(hash ^ (r * 31 + c), 16777619);
+          m[r][c] = (Math.abs(hash) % 10) > 4 ? 1 : 0;
+        }
+      }
+      return m;
+    }
+
+    function renderQRSVG(seedStr, cls = 'w-20 h-20') {
+      const m = buildQRMatrix(seedStr);
+      let rects = '';
+      for (let r = 0; r < m.length; r++) {
+        for (let c = 0; c < m.length; c++) {
+          if (m[r][c]) rects += `<rect x="${c}" y="${r}" width="1" height="1" fill="#0F172A"/>`;
+        }
+      }
+      return `<svg viewBox="0 0 ${m.length} ${m.length}" class="${cls}" shape-rendering="crispEdges">${rects}</svg>`;
+    }
+
+    // Вспомогательная функция скругленных прямоугольников для Canvas
+    function roundRectPath(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ГЕНЕРАТОР РЕАЛЬНОГО PDF-ФАЙЛА (PDF 1.4 С ХАЙ-РЕЗ CANVAS-РЕНДЕРОМ ДЛЯ ИДЕАЛЬНОЙ КИРИЛЛИЦЫ)
+    function downloadReceiptPDF(txId) {
+      const tx = state.transactions.find(t => t.id === txId);
+      if (!tx) return;
+
+      showToast('Формирование PDF-чека...', 'info');
+
+      const W = 1240;
+      const H = 1754;
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      const ctx = canvas.getContext('2d');
+
+      // Белый лист A4
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillRect(0, 0, W, H);
+
+      // Верхняя синяя полоса бренда
+      const topGrad = ctx.createLinearGradient(0, 0, W, 0);
+      topGrad.addColorStop(0, '#007AFF');
+      topGrad.addColorStop(1, '#5856D6');
+      ctx.fillStyle = topGrad;
+      ctx.fillRect(0, 0, W, 18);
+
+      const pad = 96;
+
+      // Логотип NeoBank
+      roundRectPath(ctx, pad, 86, 76, 76, 18);
+      ctx.fillStyle = '#007AFF';
+      ctx.fill();
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '700 38px -apple-system, Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('N', pad + 38, 126);
+
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = '#0F172A';
+      ctx.font = '800 36px -apple-system, Inter, sans-serif';
+      ctx.fillText('NeoBank', pad + 98, 120);
+      ctx.fillStyle = '#64748B';
+      ctx.font = '500 22px -apple-system, Inter, sans-serif';
+      ctx.fillText('ПАО «НеоБанк Демо» • БИК 044525999', pad + 98, 152);
+
+      // Правый заголовок
+      ctx.textAlign = 'right';
+      ctx.fillStyle = '#64748B';
+      ctx.font = '600 22px -apple-system, Inter, sans-serif';
+      ctx.fillText('КВИТАНЦИЯ ПО ОПЕРАЦИИ', W - pad, 114);
+      ctx.fillStyle = '#0F172A';
+      ctx.font = '700 24px monospace';
+      ctx.fillText('№ NB-' + tx.id, W - pad, 148);
+
+      // Разделитель
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(pad, 200);
+      ctx.lineTo(W - pad, 200);
+      ctx.stroke();
+
+      // Блок суммы (iOS card style)
+      roundRectPath(ctx, pad, 240, W - pad * 2, 210, 28);
+      ctx.fillStyle = '#F2F2F7';
+      ctx.fill();
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#64748B';
+      ctx.font = '600 24px -apple-system, Inter, sans-serif';
+      ctx.fillText(tx.amount > 0 ? 'СУММА ЗАЧИСЛЕНИЯ' : 'СУММА ОПЕРАЦИИ', W / 2, 296);
+
+      ctx.fillStyle = tx.amount > 0 ? '#16A34A' : '#0F172A';
+      ctx.font = '800 66px -apple-system, Inter, sans-serif';
+      const amtText = (tx.amount > 0 ? '+' : '') + formatMoney(tx.amount, tx.currency, true);
+      ctx.fillText(amtText, W / 2, 376);
+
+      ctx.fillStyle = '#16A34A';
+      ctx.font = '700 24px -apple-system, Inter, sans-serif';
+      ctx.fillText('● ' + tx.status.toUpperCase(), W / 2, 422);
+
+      // Таблица реквизитов
+      const cat = CATEGORIES[tx.category] || CATEGORIES.shopping;
+      const rows = [
+        ['Дата и время операции', formatFullDate(tx.date) + ' (МСК)'],
+        ['Наименование / Получатель', tx.title],
+        ['Детали платежа', tx.subtitle],
+        ['Плательщик', 'Соколов Александр Сергеевич'],
+        ['Счет / Карта', '•••• ' + (tx.cardLast4 || '9042')],
+        ['Категория операции', `${cat.label} (MCC ${cat.mcc})`],
+        ['Комиссия банка', '0,00 ₽'],
+        ['Начисленный кэшбэк', tx.cashback > 0 ? `+${tx.cashback} ₽` : '0 ₽'],
+        ['Код авторизации', tx.authCode || 'NB' + tx.id.slice(-4)],
+        ['Идентификатор транзакции', 'TX-' + tx.id + '-DEMO'],
+      ];
+
+      let y = 520;
+      const rowH = 74;
+      rows.forEach(([label, val], i) => {
+        ctx.textAlign = 'left';
+        ctx.fillStyle = '#64748B';
+        ctx.font = '500 24px -apple-system, Inter, sans-serif';
+        ctx.fillText(label, pad, y);
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#0F172A';
+        ctx.font = '600 24px -apple-system, Inter, sans-serif';
+        ctx.fillText(String(val).slice(0, 44), W - pad, y);
+
+        if (i < rows.length - 1) {
+          ctx.strokeStyle = '#F1F5F9';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(pad, y + 26);
+          ctx.lineTo(W - pad, y + 26);
+          ctx.stroke();
+        }
+        y += rowH;
+      });
+
+      // QR-код внизу слева
+      const qrY = 1320;
+      const matrix = buildQRMatrix(tx.id + tx.title);
+      const cell = 8;
+      const qrSize = matrix.length * cell;
+      roundRectPath(ctx, pad, qrY, qrSize + 36, qrSize + 36, 18);
+      ctx.strokeStyle = '#E2E8F0';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#0F172A';
+      for (let r = 0; r < matrix.length; r++) {
+        for (let c = 0; c < matrix.length; c++) {
+          if (matrix[r][c]) {
+            ctx.fillRect(pad + 18 + c * cell, qrY + 18 + r * cell, cell, cell);
+          }
+        }
+      }
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#64748B';
+      ctx.font = '500 20px -apple-system, Inter, sans-serif';
+      ctx.fillText('Проверка подлинности', pad + qrSize + 60, qrY + 75);
+      ctx.fillText('ЭЦП: 9F4A-22E1-DEMO', pad + qrSize + 60, qrY + 110);
+      ctx.fillText('Сформировано: ' + new Date().toLocaleDateString('ru-RU'), pad + qrSize + 60, qrY + 145);
+
+      // Круглая синяя банковская печать справа
+      ctx.save();
+      ctx.translate(W - pad - 140, qrY + 100);
+      ctx.rotate(-0.14);
+      ctx.strokeStyle = '#1D4ED8';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.arc(0, 0, 108, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 96, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = '#1D4ED8';
+      ctx.textAlign = 'center';
+      ctx.font = '800 17px -apple-system, Inter, sans-serif';
+      ctx.fillText('ПАО «НЕОБАНК ДЕМО»', 0, -40);
+      ctx.font = '800 23px -apple-system, Inter, sans-serif';
+      ctx.fillText('ИСПОЛНЕНО', 0, 6);
+      ctx.font = '600 15px -apple-system, Inter, sans-serif';
+      ctx.fillText('ПРОВЕРЕНО ЭЦП', 0, 38);
+      ctx.fillText(new Date(tx.date).toLocaleDateString('ru-RU'), 0, 62);
+      ctx.restore();
+
+      // Подвал
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#94A3B8';
+      ctx.font = '400 19px -apple-system, Inter, sans-serif';
+      ctx.fillText('Документ сформирован автоматически в демонстрационной системе NeoBank Sandbox.', W / 2, H - 72);
+
+      // Конвертация Canvas -> JPEG -> Валидный PDF 1.4 Binary
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.93);
+      const base64 = dataUrl.split(',')[1];
+      const binStr = atob(base64);
+      const jpegBytes = new Uint8Array(binStr.length);
+      for (let i = 0; i < binStr.length; i++) jpegBytes[i] = binStr.charCodeAt(i);
+
+      const pdfBlob = createPdfBlobFromJpeg(jpegBytes, W, H);
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `NeoBank_Cheque_${tx.id}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      showToast(`Файл NeoBank_Cheque_${tx.id}.pdf сохранен`);
+    }
+
+    // Чистый упаковщик JPEG в бинарный формат PDF 1.4
+    function createPdfBlobFromJpeg(jpegBytes, imgW, imgH) {
+      const encoder = new TextEncoder();
+      const chunks = [];
+      const offsets = [0];
+      let pos = 0;
+
+      const pushBytes = (u8) => { chunks.push(u8); pos += u8.length; };
+      const pushAscii = (str) => pushBytes(encoder.encode(str));
+
+      // Заголовок PDF + бинарный маркер
+      pushAscii('%PDF-1.4\n');
+      pushBytes(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));
+
+      // 1: Catalog
+      offsets[1] = pos;
+      pushAscii('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+      // 2: Pages
+      offsets[2] = pos;
+      pushAscii('2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n');
+
+      // 3: Page (A4 = 595.28 x 841.89 pt)
+      offsets[3] = pos;
+      pushAscii('3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>\nendobj\n');
+
+      // 4: Image XObject
+      offsets[4] = pos;
+      pushAscii(`4 0 obj\n<< /Type /XObject /Subtype /Image /Width ${imgW} /Height ${imgH} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpegBytes.length} >>\nstream\n`);
+      pushBytes(jpegBytes);
+      pushAscii('\nendstream\nendobj\n');
+
+      // 5: Content Stream
+      const content = 'q\n595.28 0 0 841.89 0 0 cm\n/Im0 Do\nQ\n';
+      offsets[5] = pos;
+      pushAscii(`5 0 obj\n<< /Length ${content.length} >>\nstream\n${content}endstream\nendobj\n`);
+
+      // XREF
+      const xrefOffset = pos;
+      pushAscii('xref\n0 6\n0000000000 65535 f \n');
+      for (let i = 1; i <= 5; i++) {
+        pushAscii(String(offsets[i]).padStart(10, '0') + ' 00000 n \n');
+      }
+      pushAscii(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF\n`);
+
+      return new Blob(chunks, { type: 'application/pdf' });
+    }
+
+    // =========================================================================
+    // 4. ЛОГИКА PIN-КОДА И ТЕМЫ
+    // =========================================================================
+    function applyTheme() {
+      document.documentElement.classList.toggle('dark', state.darkMode);
+    }
+
+    function updatePinDots(isError = false) {
+      const container = document.getElementById('pin-dots');
+      const dots = container.children;
+      for (let i = 0; i < 4; i++) {
+        dots[i].className = i < currentPinInput.length
+          ? 'w-3.5 h-3.5 rounded-full bg-white border-[1.5px] border-white scale-110 transition-all duration-150'
+          : 'w-3.5 h-3.5 rounded-full border-[1.5px] border-white/50 transition-all duration-150';
+      }
+      if (isError) {
+        container.classList.add('animate-shake');
+        setTimeout(() => container.classList.remove('animate-shake'), 380);
+      }
+    }
+
+    function pinPress(digit) {
+      if (currentPinInput.length >= 4) return;
+      currentPinInput += digit;
+      updatePinDots();
+      if (currentPinInput.length === 4) {
+        setTimeout(() => {
+          if (currentPinInput === state.pin) unlockApp();
+          else {
+            currentPinInput = '';
+            updatePinDots(true);
+            showToast('Неверный код-пароль (1234)', 'error');
+          }
+        }, 140);
+      }
+    }
+
+    function pinBackspace() {
+      currentPinInput = currentPinInput.slice(0, -1);
+      updatePinDots();
+    }
+
+    function biometricUnlock() {
+      showToast('Face ID подтвержден', 'info');
+      unlockApp();
+    }
+
+    function unlockApp() {
+      currentPinInput = '';
+      updatePinDots();
+      document.getElementById('lock-screen').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      render();
+    }
+
+    function lockApp() {
+      document.getElementById('app').classList.add('hidden');
+      document.getElementById('lock-screen').classList.remove('hidden');
+    }
+
+    // =========================================================================
+    // 5. НАВИГАЦИЯ
+    // =========================================================================
+    const NAV_ITEMS = [
+      { id: 'dashboard', label: 'Главная', icon: 'home' },
+      { id: 'transfers', label: 'Платежи', icon: 'transfers' },
+      { id: 'analytics', label: 'История', icon: 'analytics' },
+      { id: 'products',  label: 'Сервисы', icon: 'products' },
+      { id: 'profile',   label: 'Профиль', icon: 'profile' },
+    ];
+
+    function navigate(viewId) {
+      currentView = viewId;
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function togglePrivacy() {
+      state.hideBalances = !state.hideBalances;
+      saveState();
+      render();
+    }
+
+    function renderNavigation() {
+      document.getElementById('desktop-nav').innerHTML = NAV_ITEMS.map(item => {
+        const active = currentView === item.id;
+        return `
+          <button onclick="navigate('${item.id}')" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-[14px] text-[14px] font-medium transition ${active ? 'bg-[#007AFF] text-white shadow-sm shadow-blue-500/25' : 'text-slate-700 dark:text-slate-300 hover:bg-black/[0.04] dark:hover:bg-white/[0.06]'}">
+            ${icon(item.icon, 'w-5 h-5', active ? '2.1' : '1.8')}
+            <span>${item.label}</span>
+          </button>
+        `;
+      }).join('');
+
+      document.getElementById('mobile-nav').innerHTML = NAV_ITEMS.map(item => {
+        const active = currentView === item.id;
+        return `
+          <button onclick="navigate('${item.id}')" class="flex flex-col items-center gap-0.5 py-1 px-3 rounded-xl transition active:scale-95 ${active ? 'text-[#007AFF]' : 'text-[#8E8E93]'}">
+            ${icon(item.icon, 'w-6 h-6', active ? '2.2' : '1.7')}
+            <span class="text-[10px] font-medium">${item.label}</span>
+          </button>
+        `;
+      }).join('');
+
+      const activeItem = NAV_ITEMS.find(i => i.id === currentView);
+      document.getElementById('header-title').textContent = activeItem ? activeItem.label : 'NeoBank';
+
+      document.getElementById('privacy-btn').innerHTML = icon(state.hideBalances ? 'eyeOff' : 'eye', 'w-[18px] h-[18px]');
+      document.getElementById('mobile-chat-btn').innerHTML = icon('chat', 'w-[18px] h-[18px]');
+      document.getElementById('sidebar-chat-icon').innerHTML = icon('chat', 'w-4 h-4');
+      document.getElementById('sidebar-lock-icon').innerHTML = icon('lock', 'w-4 h-4');
+      document.getElementById('desktop-theme-btn').innerHTML = icon(state.darkMode ? 'sun' : 'moon', 'w-4 h-4');
+
+      const hasUnread = state.notifications.some(n => n.unread);
+      document.getElementById('notif-btn').innerHTML = `
+        ${icon('bell', 'w-[18px] h-[18px]')}
+        ${hasUnread ? '<span class="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#FF3B30] ring-2 ring-white dark:ring-[#1C1C1E]"></span>' : ''}
+      `;
+    }
+
+    // =========================================================================
+    // 6. ЭКРАНЫ ПРИЛОЖЕНИЯ
+    // =========================================================================
+    function render() {
+      applyTheme();
+      renderNavigation();
+      const container = document.getElementById('view-container');
+      if (currentView === 'dashboard') container.innerHTML = renderDashboard();
+      else if (currentView === 'transfers') container.innerHTML = renderTransfers();
+      else if (currentView === 'analytics') container.innerHTML = renderAnalytics();
+      else if (currentView === 'products') container.innerHTML = renderProducts();
+      else if (currentView === 'profile') container.innerHTML = renderProfile();
+    }
+
+    // --- ГЛАВНАЯ (APPLE WALLET + BENTO GRID) ---
+    function renderDashboard() {
+      const totalRub = getTotalBalanceRUB();
+      const recentTx = state.transactions.slice(0, 5);
+
+      return `
+        <!-- ГЕРОЙ-БЛОК БАЛАНСА И БЫСТРЫХ ДЕЙСТВИЙ -->
+        <div class="bg-white dark:bg-[#1C1C1E] rounded-[28px] p-5 md:p-6 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+          <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div>
+              <span class="text-[13px] font-medium text-[#8E8E93]">Общий баланс на всех счетах</span>
+              <div class="text-[34px] md:text-[40px] font-bold tracking-tight tabular-nums leading-tight mt-0.5">${formatMoney(totalRub, 'RUB')}</div>
+              <div class="inline-flex items-center gap-2 mt-2.5 px-3 py-1 rounded-full bg-[#34C759]/12 text-[#248A3D] dark:text-[#34C759] text-[12px] font-semibold">
+                ${icon('sparkle', 'w-3.5 h-3.5')}
+                <span class="tabular-nums">Кэшбэк: ${formatMoney(state.cashbackBalance, 'RUB', true)}</span>
+                <button onclick="claimCashback()" class="ml-1 underline decoration-1 underline-offset-2 hover:opacity-75">Вывести</button>
+              </div>
+            </div>
+
+            <!-- 4 КНОПКИ БЫСТРЫХ ДЕЙСТВИЙ (iOS CONTROL STYLE) -->
+            <div class="grid grid-cols-4 gap-2.5 md:gap-3 lg:w-auto">
+              ${[
+                { fn: 'openTopUpModal()', label: 'Пополнить', ic: 'plus', bg: 'bg-[#007AFF] text-white' },
+                { fn: "navigate('transfers')", label: 'Перевести', ic: 'send', bg: 'bg-[#5856D6] text-white' },
+                { fn: 'openExchangeModal()', label: 'Обмен', ic: 'refresh', bg: 'bg-[#34C759] text-white' },
+                { fn: 'openQRStubModal()', label: 'По QR', ic: 'qr', bg: 'bg-[#1C1C1E] dark:bg-[#2C2C2E] text-white' },
+              ].map(btn => `
+                <button onclick="${btn.fn}" class="flex flex-col items-center gap-2 p-2.5 md:px-4 md:py-3 rounded-[20px] bg-[#F2F2F7] dark:bg-[#2C2C2E]/80 hover:bg-black/[0.06] dark:hover:bg-white/[0.1] active:scale-95 transition">
+                  <div class="w-11 h-11 rounded-full ${btn.bg} flex items-center justify-center shadow-sm">
+                    ${icon(btn.ic, 'w-5 h-5', '2.1')}
+                  </div>
+                  <span class="text-[11px] md:text-[12px] font-semibold tracking-tight">${btn.label}</span>
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- КОШЕЛЕК КАРТ (СВАЙП НА ТЕЛЕФОНЕ / СЕТКА 3 КОЛОНКИ НА ПК) -->
+        <div>
+          <div class="flex items-center justify-between mb-2.5 px-1">
+            <h2 class="font-bold text-[17px] tracking-tight">Кошелек</h2>
+            <span class="text-[12px] text-[#8E8E93]">Нажмите на карту для реквизитов</span>
+          </div>
+
+          <div class="flex md:grid md:grid-cols-3 gap-4 overflow-x-auto no-scrollbar pb-2 snap-x">
+            ${state.cards.map(c => `
+              <div onclick="openCardModal('${c.id}')" class="snap-start shrink-0 w-[290px] md:w-full h-[176px] rounded-[24px] p-5 text-white bg-gradient-to-br ${c.gradient} card-sheen shadow-[0_10px_25px_-5px_rgba(0,0,0,0.18)] relative overflow-hidden cursor-pointer active:scale-[0.98] hover:-translate-y-0.5 transition duration-200 flex flex-col justify-between border border-white/15">
+                ${c.frozen ? `
+                  <div class="absolute inset-0 bg-slate-950/75 backdrop-blur-sm z-10 flex flex-col items-center justify-center gap-1.5">
+                    <div class="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center text-sky-300">${icon('snowflake', 'w-5 h-5')}</div>
+                    <span class="text-[11px] font-bold uppercase tracking-widest text-white/90">Заморожена</span>
+                  </div>
+                ` : ''}
+
+                <div class="flex justify-between items-start">
+                  <div>
+                    <div class="text-[11px] text-white/70 font-medium">${c.type}</div>
+                    <div class="font-bold text-[15px] tracking-tight">${c.name}</div>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    ${icon('nfc', 'w-4 h-4 text-white/60 rotate-90')}
+                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/15 backdrop-blur-md">${c.currency}</span>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between my-auto">
+                  ${cardChipSVG()}
+                </div>
+
+                <div class="flex items-end justify-between">
+                  <div>
+                    <div class="text-[22px] font-bold tracking-tight tabular-nums leading-none">${formatMoney(c.balance, c.currency)}</div>
+                    <div class="text-[12px] text-white/75 font-mono mt-1.5 tabular-nums">•••• ${c.number.slice(-4)} <span class="ml-2 text-white/50">${c.expiry}</span></div>
+                  </div>
+                  <!-- Векторный логотип платежной системы -->
+                  <div class="flex -space-x-2 opacity-90">
+                    <div class="w-5 h-5 rounded-full bg-white/80"></div>
+                    <div class="w-5 h-5 rounded-full bg-white/45"></div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- НИЖНИЙ BENTO-БЛОК: ПОСЛЕДНИЕ ОПЕРАЦИИ + БЫСТРЫЕ ПЕРЕВОДЫ И ЦЕЛИ -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+          <!-- БЫСТРЫЕ КОНТАКТЫ И ЦЕЛИ (4/12 НА ПК) -->
+          <div class="lg:col-span-5 space-y-5">
+            <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+              <div class="flex justify-between items-center mb-3.5">
+                <h3 class="font-bold text-[15px]">Перевести контакту</h3>
+                <button onclick="navigate('transfers')" class="text-[13px] text-[#007AFF] font-medium">Все</button>
+              </div>
+              <div class="grid grid-cols-4 gap-2">
+                ${CONTACTS.map(ct => `
+                  <button onclick="startQuickTransfer('${ct.id}')" class="flex flex-col items-center gap-1.5 p-2 rounded-[18px] hover:bg-[#F2F2F7] dark:hover:bg-[#2C2C2E] active:scale-95 transition">
+                    <div class="w-12 h-12 rounded-full bg-gradient-to-br ${ct.grad} text-white font-bold text-[14px] flex items-center justify-center shadow-sm">${ct.initials}</div>
+                    <span class="text-[11px] font-medium truncate w-full text-center">${ct.name}</span>
+                  </button>
+                `).join('')}
+              </div>
+            </div>
+
+            <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+              <div class="flex justify-between items-center mb-3.5">
+                <h3 class="font-bold text-[15px]">Накопления</h3>
+                <button onclick="navigate('products')" class="text-[13px] text-[#007AFF] font-medium">Открыть</button>
+              </div>
+              <div class="space-y-3.5">
+                ${state.goals.slice(0, 2).map(g => {
+                  const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+                  return `
+                    <div onclick="navigate('products')" class="cursor-pointer group">
+                      <div class="flex justify-between items-center text-[13px] mb-1.5">
+                        <div class="flex items-center gap-2 font-semibold">
+                          <span class="text-[#007AFF]">${icon(g.icon, 'w-4 h-4')}</span>
+                          <span>${escapeHTML(g.title)}</span>
+                        </div>
+                        <span class="text-[#8E8E93] tabular-nums text-[12px] font-medium">${pct}%</span>
+                      </div>
+                      <div class="w-full h-2 bg-[#F2F2F7] dark:bg-[#2C2C2E] rounded-full overflow-hidden">
+                        <div class="h-full bg-[#007AFF] rounded-full transition-all duration-500" style="width:${pct}%"></div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+
+          <!-- ПОСЛЕДНИЕ ТРАНЗАКЦИИ (7/12 НА ПК) -->
+          <div class="lg:col-span-7 bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+            <div class="flex justify-between items-center mb-2">
+              <div>
+                <h3 class="font-bold text-[16px]">Последние операции</h3>
+                <p class="text-[11px] text-[#8E8E93]">Нажмите на трату, чтобы открыть PDF-чек</p>
+              </div>
+              <button onclick="navigate('analytics')" class="text-[13px] text-[#007AFF] font-medium">Вся история</button>
+            </div>
+            <div class="divide-y divide-black/[0.05] dark:divide-white/[0.07]">
+              ${recentTx.map(t => renderTxRow(t)).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTxRow(t) {
+      const cat = CATEGORIES[t.category] || CATEGORIES.shopping;
+      const isIncome = t.amount > 0;
+      return `
+        <div onclick="openTxModal('${t.id}')" class="flex items-center justify-between py-3 cursor-pointer hover:bg-[#F2F2F7]/70 dark:hover:bg-[#2C2C2E]/60 -mx-2.5 px-2.5 rounded-[16px] active:scale-[0.99] transition">
+          <div class="flex items-center gap-3.5 min-w-0">
+            <div class="w-10 h-10 rounded-[13px] ${cat.bg} flex items-center justify-center shrink-0">
+              ${icon(cat.icon, 'w-5 h-5')}
+            </div>
+            <div class="min-w-0">
+              <div class="font-semibold text-[14px] truncate">${escapeHTML(t.title)}</div>
+              <div class="text-[12px] text-[#8E8E93] truncate">${escapeHTML(t.subtitle)} • ${formatDate(t.date)}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5 shrink-0 ml-3">
+            <div class="text-right">
+              <div class="font-semibold text-[14px] tabular-nums ${isIncome ? 'text-[#34C759]' : ''}">
+                ${isIncome ? '+' : ''}${formatMoney(t.amount, t.currency)}
+              </div>
+              ${t.cashback > 0 ? `<div class="text-[10px] font-semibold text-[#34C759] tabular-nums">+${t.cashback} ₽ кэшбэк</div>` : ''}
+            </div>
+            <span class="text-[#C7C7CC] dark:text-[#48484A]">${icon('chevronRight', 'w-4 h-4')}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    // --- ЭКРАН 2: ПЕРЕВОДЫ И ПЛАТЕЖИ ---
+    let transferMode = 'p2p';
+    let prefillContact = null;
+
+    function renderTransfers() {
+      const activeCards = state.cards.filter(c => !c.frozen);
+      return `
+        <div class="bg-white dark:bg-[#1C1C1E] rounded-[28px] p-5 md:p-6 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07] max-w-2xl">
+          <!-- iOS SEGMENTED CONTROL -->
+          <div class="grid grid-cols-3 p-1 bg-[#767680]/[0.12] dark:bg-[#2C2C2E] rounded-[12px] mb-6">
+            ${[
+              { id: 'p2p', label: 'По телефону' },
+              { id: 'own', label: 'Между своими' },
+              { id: 'services', label: 'Услуги' }
+            ].map(tab => `
+              <button onclick="transferMode='${tab.id}'; render()" class="py-1.5 text-[13px] font-semibold rounded-[9px] transition ${transferMode===tab.id ? 'bg-white dark:bg-[#636366] shadow-xs text-slate-950 dark:text-white' : 'text-slate-600 dark:text-slate-300'}">${tab.label}</button>
+            `).join('')}
+          </div>
+
+          ${activeCards.length === 0 ? `
+            <div class="p-4 rounded-2xl bg-[#FF3B30]/10 text-[#FF3B30] text-[13px] font-medium text-center">
+              Все ваши карты заморожены. Разморозьте карту в разделе «Главная».
+            </div>
+          ` : transferMode === 'p2p' ? renderP2PForm(activeCards) : transferMode === 'own' ? renderOwnTransferForm(activeCards) : renderServicesForm(activeCards)}
+        </div>
+      `;
+    }
+
+    function renderP2PForm(cards) {
+      const rubCards = cards.filter(c => c.currency === 'RUB');
+      return `
+        <div class="mb-5">
+          <div class="text-[12px] font-semibold text-[#8E8E93] mb-2.5">Быстрый выбор</div>
+          <div class="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
+            ${CONTACTS.map(ct => `
+              <button type="button" onclick="selectTransferContact('${ct.id}')" class="shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-[16px] border transition ${prefillContact?.id === ct.id ? 'border-[#007AFF] bg-[#007AFF]/8' : 'border-black/[0.06] dark:border-white/[0.08] bg-[#F2F2F7]/60 dark:bg-[#2C2C2E]/60'}">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br ${ct.grad} text-white text-[11px] font-bold flex items-center justify-center">${ct.initials}</div>
+                <div class="text-left">
+                  <div class="text-[12px] font-semibold leading-tight">${ct.name}</div>
+                  <div class="text-[10px] text-[#8E8E93]">${ct.bank}</div>
+                </div>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+
+        <form onsubmit="handleP2PSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Счет списания</label>
+            <select id="p2p-from" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium outline-none">
+              ${rubCards.map(c => `<option value="${c.id}">${c.name} (•• ${c.number.slice(-4)}) — ${formatMoney(c.balance, c.currency, true)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Телефон или номер карты</label>
+              <input id="p2p-to" type="text" required value="${prefillContact ? prefillContact.phone : ''}" placeholder="+7 (999) 000-00-00" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] outline-none focus:ring-2 focus:ring-[#007AFF]" />
+            </div>
+            <div>
+              <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Банк получателя (СБП)</label>
+              <select id="p2p-bank" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] outline-none">
+                ${['Сбербанк', 'Т-Банк', 'Альфа-Банк', 'ВТБ', 'NeoBank'].map(b => `<option value="${b}" ${prefillContact?.bank === b ? 'selected' : ''}>${b}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Сумма перевода</label>
+            <div class="relative">
+              <input id="p2p-amount" type="number" min="1" step="0.01" required placeholder="1000" class="w-full px-4 py-3.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[22px] font-bold tabular-nums outline-none focus:ring-2 focus:ring-[#007AFF]" />
+              <span class="absolute right-4 top-1/2 -translate-y-1/2 text-[#8E8E93] font-bold">₽</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Комментарий</label>
+            <input id="p2p-comment" type="text" placeholder="Сообщение получателю" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] outline-none focus:ring-2 focus:ring-[#007AFF]" />
+          </div>
+          <div class="flex items-center justify-between text-[12px] text-[#8E8E93] px-1">
+            <span>Комиссия по СБП</span>
+            <span class="font-semibold text-[#34C759]">0 ₽</span>
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-[15px] shadow-md shadow-blue-500/20 active:scale-[0.99] transition">
+            Перевести
+          </button>
+        </form>
+      `;
+    }
+
+    function renderOwnTransferForm(cards) {
+      if (cards.length < 2) return `<div class="text-[13px] text-[#8E8E93] py-4">Нужно минимум 2 активные карты.</div>`;
+      return `
+        <form onsubmit="handleOwnTransferSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Откуда</label>
+            <select id="own-from" onchange="updateOwnPreview()" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium">
+              ${cards.map(c => `<option value="${c.id}">${c.name} (${c.currency}) — ${formatMoney(c.balance, c.currency, true)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Куда</label>
+            <select id="own-to" onchange="updateOwnPreview()" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium">
+              ${cards.map((c, idx) => `<option value="${c.id}" ${idx === 1 ? 'selected' : ''}>${c.name} (${c.currency}) — ${formatMoney(c.balance, c.currency, true)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Сумма списания</label>
+            <input id="own-amount" type="number" min="1" step="0.01" required placeholder="5000" oninput="updateOwnPreview()" class="w-full px-4 py-3.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[22px] font-bold tabular-nums outline-none focus:ring-2 focus:ring-[#007AFF]" />
+            <div id="own-conversion-hint" class="text-[12px] text-[#007AFF] font-medium mt-1.5">Курс конвертации: 1 USD = ${USD_RATE} ₽</div>
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-[15px] transition">
+            Перевести между счетами
+          </button>
+        </form>
+      `;
+    }
+
+    function updateOwnPreview() {
+      const fromEl = document.getElementById('own-from');
+      const toEl = document.getElementById('own-to');
+      const amtEl = document.getElementById('own-amount');
+      const hintEl = document.getElementById('own-conversion-hint');
+      if (!fromEl || !toEl || !amtEl || !hintEl) return;
+      const fromCard = state.cards.find(c => c.id === fromEl.value);
+      const toCard = state.cards.find(c => c.id === toEl.value);
+      const amt = parseFloat(amtEl.value);
+      if (!fromCard || !toCard || isNaN(amt) || amt <= 0) {
+        hintEl.textContent = `Курс при обмене: 1 USD = ${USD_RATE} ₽`;
+        return;
+      }
+      let out = amt;
+      if (fromCard.currency === 'RUB' && toCard.currency === 'USD') out = +(amt / USD_RATE).toFixed(2);
+      else if (fromCard.currency === 'USD' && toCard.currency === 'RUB') out = +(amt * USD_RATE).toFixed(2);
+      hintEl.textContent = `На ${toCard.name} зачислится: ${formatMoney(out, toCard.currency, true)}`;
+    }
+
+    function renderServicesForm(cards) {
+      const rubCards = cards.filter(c => c.currency === 'RUB');
+      const providers = [
+        { name: 'Мобильная связь (МТС / Мегафон)', cat: 'services' },
+        { name: 'ЖКХ и Электроэнергия', cat: 'services' },
+        { name: 'Surf Coffee / Рестораны (кэшбэк)', cat: 'food' },
+        { name: 'Яндекс Go / Такси (кэшбэк)', cat: 'transport' },
+        { name: 'Ozon / Маркетплейсы (кэшбэк)', cat: 'shopping' },
+      ];
+      return `
+        <form onsubmit="handleServiceSubmit(event)" class="space-y-4">
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Категория или продавец</label>
+            <select id="srv-provider" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium">
+              ${providers.map(p => `<option value="${p.cat}|${p.name}">${p.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Карта оплаты</label>
+            <select id="srv-from" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium">
+              ${rubCards.map(c => `<option value="${c.id}">${c.name} — ${formatMoney(c.balance, c.currency, true)}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Номер телефона или счета</label>
+            <input id="srv-account" type="text" required value="+7 (916) 123-45-67" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px]" />
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Сумма оплаты (₽)</label>
+            <input id="srv-amount" type="number" min="1" step="0.01" required placeholder="500" class="w-full px-4 py-3.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[22px] font-bold tabular-nums" />
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#5856D6] hover:bg-[#4B49C4] text-white font-semibold text-[15px] transition">
+            Оплатить
+          </button>
+        </form>
+      `;
+    }
+
+    function selectTransferContact(cid) {
+      prefillContact = CONTACTS.find(c => c.id === cid) || null;
+      render();
+    }
+
+    function startQuickTransfer(cid) {
+      prefillContact = CONTACTS.find(c => c.id === cid) || null;
+      transferMode = 'p2p';
+      navigate('transfers');
+    }
+
+    // --- ЭКРАН 3: ИСТОРИЯ И АНАЛИТИКА ---
+    let historySearch = '';
+    let historyFilter = 'all';
+
+    function getFilteredTransactions() {
+      return state.transactions.filter(t => {
+        const matchesCat = historyFilter === 'all' || t.category === historyFilter;
+        const q = historySearch.trim().toLowerCase();
+        const matchesSearch = !q || t.title.toLowerCase().includes(q) || t.subtitle.toLowerCase().includes(q);
+        return matchesCat && matchesSearch;
+      });
+    }
+
+    function updateHistoryListOnly() {
+      const box = document.getElementById('tx-list-container');
+      if (!box) return;
+      const list = getFilteredTransactions();
+      box.innerHTML = list.length
+        ? list.map(t => renderTxRow(t)).join('')
+        : `<div class="text-center py-10 text-[13px] text-[#8E8E93]">Операции по запросу не найдены</div>`;
+    }
+
+    function renderAnalytics() {
+      const expenses = state.transactions.filter(t => t.amount < 0);
+      const incomes = state.transactions.filter(t => t.amount > 0);
+      const totalExpense = expenses.reduce((s, t) => s + Math.abs(t.currency === 'USD' ? t.amount * USD_RATE : t.amount), 0);
+      const totalIncome = incomes.reduce((s, t) => s + (t.currency === 'USD' ? t.amount * USD_RATE : t.amount), 0);
+
+      const catTotals = {};
+      expenses.forEach(t => {
+        const val = Math.abs(t.currency === 'USD' ? t.amount * USD_RATE : t.amount);
+        catTotals[t.category] = (catTotals[t.category] || 0) + val;
+      });
+      const sortedCats = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+
+      let offset = 0;
+      const radius = 38;
+      const circumference = 2 * Math.PI * radius;
+      const segments = sortedCats.map(([catKey, val]) => {
+        const pct = totalExpense > 0 ? val / totalExpense : 0;
+        const dash = pct * circumference;
+        const color = (CATEGORIES[catKey] || CATEGORIES.shopping).color;
+        const seg = `<circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="${color}" stroke-width="13" stroke-dasharray="${dash} ${circumference}" stroke-dashoffset="${-offset}" />`;
+        offset += dash;
+        return seg;
+      }).join('');
+
+      const filteredTx = getFilteredTransactions();
+
+      return `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07] flex items-center gap-6">
+            <div class="relative w-32 h-32 shrink-0">
+              <svg viewBox="0 0 100 100" class="w-full h-full -rotate-90">
+                <circle cx="50" cy="50" r="${radius}" fill="transparent" stroke="currentColor" class="text-[#F2F2F7] dark:text-[#2C2C2E]" stroke-width="13" />
+                ${segments}
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                <span class="text-[10px] text-[#8E8E93] font-medium">Расходы</span>
+                <span class="text-[12px] font-bold tabular-nums">${formatMoney(totalExpense, 'RUB')}</span>
+              </div>
+            </div>
+            <div class="flex-1 space-y-2.5 min-w-0">
+              ${sortedCats.slice(0, 4).map(([key, val]) => {
+                const c = CATEGORIES[key] || CATEGORIES.shopping;
+                const pct = totalExpense > 0 ? Math.round((val / totalExpense) * 100) : 0;
+                return `
+                  <div class="flex items-center justify-between text-[12px]">
+                    <div class="flex items-center gap-2 truncate">
+                      <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${c.color}"></span>
+                      <span class="truncate font-medium">${c.label}</span>
+                    </div>
+                    <span class="font-bold tabular-nums ml-2">${pct}%</span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07] flex flex-col justify-center gap-3">
+            <div class="flex justify-between items-center p-3.5 rounded-[18px] bg-[#34C759]/10">
+              <span class="text-[13px] font-semibold text-[#248A3D] dark:text-[#34C759]">Зачисления</span>
+              <span class="text-[17px] font-bold tabular-nums text-[#248A3D] dark:text-[#34C759]">+${formatMoney(totalIncome, 'RUB')}</span>
+            </div>
+            <div class="flex justify-between items-center p-3.5 rounded-[18px] bg-[#F2F2F7] dark:bg-[#2C2C2E]">
+              <span class="text-[13px] font-semibold text-[#8E8E93]">Траты за период</span>
+              <span class="text-[17px] font-bold tabular-nums">−${formatMoney(totalExpense, 'RUB')}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07] space-y-4">
+          <div class="relative">
+            <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8E8E93]">${icon('search', 'w-4 h-4')}</span>
+            <input type="text" value="${escapeHTML(historySearch)}" oninput="historySearch=this.value; updateHistoryListOnly()" placeholder="Поиск операций и чеков..." class="w-full pl-10 pr-4 py-2.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] outline-none focus:ring-2 focus:ring-[#007AFF]" />
+          </div>
+
+          <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <button onclick="historyFilter='all'; render()" class="shrink-0 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition ${historyFilter==='all' ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950' : 'bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#8E8E93]'}">Все</button>
+            ${Object.entries(CATEGORIES).map(([k, v]) => `
+              <button onclick="historyFilter='${k}'; render()" class="shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold transition ${historyFilter===k ? 'bg-slate-950 dark:bg-white text-white dark:text-slate-950' : 'bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[#8E8E93]'}">
+                ${icon(v.icon, 'w-3.5 h-3.5')}
+                <span>${v.label}</span>
+              </button>
+            `).join('')}
+          </div>
+
+          <div id="tx-list-container" class="divide-y divide-black/[0.05] dark:divide-white/[0.07]">
+            ${filteredTx.length ? filteredTx.map(t => renderTxRow(t)).join('') : `<div class="text-center py-10 text-[13px] text-[#8E8E93]">Операций не найдено</div>`}
+          </div>
+        </div>
+      `;
+    }
+
+    // --- ЭКРАН 4: СЕРВИСЫ ---
+    function renderProducts() {
+      return `
+        <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+          <div class="flex justify-between items-center mb-1">
+            <h3 class="font-bold text-[17px]">Кэшбэк месяца</h3>
+            <span class="text-[12px] font-semibold px-2.5 py-0.5 rounded-full bg-[#007AFF]/12 text-[#007AFF]">Выбрано ${state.selectedCashbackIds.length} из 3</span>
+          </div>
+          <p class="text-[12px] text-[#8E8E93] mb-4">Повышенный кэшбэк начисляется при оплате услуг в выбранных категориях</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            ${CASHBACK_POOL.map(item => {
+              const selected = state.selectedCashbackIds.includes(item.id);
+              return `
+                <button onclick="toggleCashbackCategory('${item.id}')" class="flex items-center justify-between p-3.5 rounded-[18px] border text-left active:scale-[0.98] transition ${selected ? 'border-[#007AFF] bg-[#007AFF]/[0.06]' : 'border-black/[0.06] dark:border-white/[0.08] hover:bg-[#F2F2F7]/50 dark:hover:bg-[#2C2C2E]/50'}">
+                  <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-[11px] bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#007AFF]">
+                      ${icon(item.icon, 'w-5 h-5')}
+                    </div>
+                    <div>
+                      <div class="text-[13px] font-semibold">${item.name}</div>
+                      <div class="text-[11px] font-bold text-[#34C759]">${item.rate}% кэшбэк</div>
+                    </div>
+                  </div>
+                  <div class="w-5 h-5 rounded-full flex items-center justify-center transition ${selected ? 'bg-[#007AFF] text-white' : 'border-[1.5px] border-[#C7C7CC] dark:border-[#48484A]'}">
+                    ${selected ? icon('check', 'w-3 h-3', '2.8') : ''}
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-[17px]">Накопительные цели</h3>
+            <button onclick="openNewGoalModal()" class="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[#007AFF] text-white text-[12px] font-semibold active:scale-95 transition">
+              ${icon('plus', 'w-3.5 h-3.5', '2.5')}
+              <span>Цель</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            ${state.goals.map(g => {
+              const pct = Math.min(100, Math.round((g.current / g.target) * 100));
+              return `
+                <div class="p-4 rounded-[20px] bg-[#F2F2F7]/80 dark:bg-[#2C2C2E]/70 space-y-3">
+                  <div class="flex justify-between items-start">
+                    <div class="flex items-center gap-3">
+                      <div class="w-10 h-10 rounded-[12px] bg-white dark:bg-[#1C1C1E] text-[#007AFF] flex items-center justify-center shadow-xs">
+                        ${icon(g.icon, 'w-5 h-5')}
+                      </div>
+                      <div>
+                        <div class="font-bold text-[14px]">${escapeHTML(g.title)}</div>
+                        <div class="text-[12px] text-[#8E8E93] tabular-nums">${formatMoney(g.current, 'RUB')} из ${formatMoney(g.target, 'RUB')}</div>
+                      </div>
+                    </div>
+                    <span class="text-[13px] font-bold text-[#007AFF] tabular-nums">${pct}%</span>
+                  </div>
+                  <div class="w-full h-2 bg-black/[0.06] dark:bg-white/[0.1] rounded-full overflow-hidden">
+                    <div class="h-full bg-[#007AFF] rounded-full transition-all duration-500" style="width:${pct}%"></div>
+                  </div>
+                  <div class="flex gap-2">
+                    <button onclick="openGoalActionModal('${g.id}', 'add')" class="flex-1 py-2 rounded-[12px] bg-white dark:bg-[#1C1C1E] text-[12px] font-semibold shadow-xs active:scale-95 transition">Пополнить</button>
+                    <button onclick="openGoalActionModal('${g.id}', 'withdraw')" class="flex-1 py-2 rounded-[12px] bg-white dark:bg-[#1C1C1E] text-[12px] font-semibold shadow-xs active:scale-95 transition">Снять</button>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <div class="bg-gradient-to-br from-[#007AFF] to-[#5856D6] rounded-[26px] p-6 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span class="text-[10px] uppercase tracking-wider font-bold bg-white/20 px-2.5 py-0.5 rounded-full">Песочница</span>
+            <h3 class="text-[20px] font-bold tracking-tight mt-2">Демо-кредит на любые тесты</h3>
+            <p class="text-[13px] text-white/80 mt-1">Мгновенно зачислите виртуальные рубли на карту Neo Black по калькулятору.</p>
+          </div>
+          <button onclick="openLoanModal()" class="shrink-0 px-5 py-3 rounded-[16px] bg-white text-[#007AFF] font-bold text-[14px] active:scale-95 transition shadow-sm">
+            Рассчитать
+          </button>
+        </div>
+      `;
+    }
+
+    // --- ЭКРАН 5: ПРОФИЛЬ (iOS SETTINGS STYLE) ---
+    function renderProfile() {
+      const iosSwitch = (active, onClick) => `
+        <button onclick="${onClick}" class="w-[51px] h-[31px] rounded-full transition-colors duration-200 p-[2px] ${active ? 'bg-[#34C759]' : 'bg-[#787880]/30 dark:bg-[#39393D]'}">
+          <div class="w-[27px] h-[27px] rounded-full bg-white shadow-md transition-transform duration-200 ${active ? 'translate-x-[20px]' : 'translate-x-0'}"></div>
+        </button>
+      `;
+
+      return `
+        <div class="max-w-2xl space-y-5">
+          <div class="bg-white dark:bg-[#1C1C1E] rounded-[26px] p-5 shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07] flex items-center gap-4">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-[#5856D6] to-[#007AFF] text-white text-[20px] font-bold flex items-center justify-center shadow-md">АС</div>
+            <div>
+              <h2 class="text-[18px] font-bold tracking-tight">Александр Соколов</h2>
+              <p class="text-[13px] text-[#8E8E93] tabular-nums">+7 (916) 800-12-34 • Neo Prime</p>
+            </div>
+          </div>
+
+          <div class="bg-white dark:bg-[#1C1C1E] rounded-[24px] overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+            <div class="flex items-center justify-between px-4 py-3.5">
+              <div class="flex items-center gap-3.5">
+                <div class="w-8 h-8 rounded-[9px] bg-[#1C1C1E] dark:bg-[#2C2C2E] text-white flex items-center justify-center">${icon('moon', 'w-4 h-4')}</div>
+                <span class="text-[15px] font-medium">Темное оформление</span>
+              </div>
+              ${iosSwitch(state.darkMode, 'state.darkMode=!state.darkMode; saveState(); render();')}
+            </div>
+
+            <div class="h-px bg-black/[0.05] dark:bg-white/[0.07] ml-14"></div>
+
+            <div class="flex items-center justify-between px-4 py-3.5">
+              <div class="flex items-center gap-3.5">
+                <div class="w-8 h-8 rounded-[9px] bg-[#5856D6] text-white flex items-center justify-center">${icon('eyeOff', 'w-4 h-4')}</div>
+                <span class="text-[15px] font-medium">Скрывать суммы на экранах</span>
+              </div>
+              ${iosSwitch(state.hideBalances, 'togglePrivacy()')}
+            </div>
+
+            <div class="h-px bg-black/[0.05] dark:bg-white/[0.07] ml-14"></div>
+
+            <button onclick="openChangePinModal()" class="w-full flex items-center justify-between px-4 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition">
+              <div class="flex items-center gap-3.5">
+                <div class="w-8 h-8 rounded-[9px] bg-[#007AFF] text-white flex items-center justify-center">${icon('lock', 'w-4 h-4')}</div>
+                <span class="text-[15px] font-medium">Сменить код-пароль</span>
+              </div>
+              <span class="text-[#C7C7CC]">${icon('chevronRight', 'w-4 h-4')}</span>
+            </button>
+
+            <div class="h-px bg-black/[0.05] dark:bg-white/[0.07] ml-14"></div>
+
+            <button onclick="openSupportModal()" class="w-full flex items-center justify-between px-4 py-3.5 hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition">
+              <div class="flex items-center gap-3.5">
+                <div class="w-8 h-8 rounded-[9px] bg-[#34C759] text-white flex items-center justify-center">${icon('chat', 'w-4 h-4')}</div>
+                <span class="text-[15px] font-medium">Чат с поддержкой</span>
+              </div>
+              <span class="text-[#C7C7CC]">${icon('chevronRight', 'w-4 h-4')}</span>
+            </button>
+          </div>
+
+          <div class="bg-white dark:bg-[#1C1C1E] rounded-[24px] overflow-hidden shadow-[0_2px_16px_rgba(0,0,0,0.03)] border border-black/[0.04] dark:border-white/[0.07]">
+            <button onclick="lockApp()" class="w-full flex items-center gap-3.5 px-4 py-3.5 text-[#007AFF] hover:bg-black/[0.02] dark:hover:bg-white/[0.03] transition">
+              <div class="w-8 h-8 rounded-[9px] bg-[#007AFF]/12 flex items-center justify-center">${icon('lock', 'w-4 h-4')}</div>
+              <span class="text-[15px] font-medium">Заблокировать приложение</span>
+            </button>
+            <div class="h-px bg-black/[0.05] dark:bg-white/[0.07] ml-14"></div>
+            <button onclick="resetDemoData()" class="w-full flex items-center gap-3.5 px-4 py-3.5 text-[#FF3B30] hover:bg-[#FF3B30]/[0.05] transition">
+              <div class="w-8 h-8 rounded-[9px] bg-[#FF3B30]/12 flex items-center justify-center">${icon('trash', 'w-4 h-4')}</div>
+              <span class="text-[15px] font-medium">Сбросить демо-данные</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 7. ОБРАБОТЧИКИ ПЕРЕВОДОВ И ПЛАТЕЖЕЙ
+    // =========================================================================
+    function handleP2PSubmit(e) {
+      e.preventDefault();
+      const fromId = document.getElementById('p2p-from').value;
+      const to = document.getElementById('p2p-to').value.trim();
+      const bank = document.getElementById('p2p-bank').value;
+      const amount = parseFloat(document.getElementById('p2p-amount').value);
+      const comment = document.getElementById('p2p-comment').value.trim();
+
+      const card = state.cards.find(c => c.id === fromId);
+      if (!card || card.frozen) return showToast('Карта недоступна', 'error');
+      if (isNaN(amount) || amount <= 0) return showToast('Укажите сумму', 'error');
+      if (amount > card.balance) return showToast('Недостаточно средств', 'error');
+      if (amount > card.limit) return showToast(`Превышен лимит (${formatMoney(card.limit, 'RUB', true)})`, 'error');
+
+      const recipientName = prefillContact && prefillContact.phone === to ? prefillContact.name : to;
+
+      openConfirmTransferModal({
+        title: `Перевод: ${recipientName}`,
+        subtitle: `${bank} • ${comment || 'СБП'}`,
+        fromCard: card,
+        amount,
+        currency: 'RUB',
+        onConfirm: () => {
+          card.balance -= amount;
+          const tx = {
+            id: String(Math.floor(100000 + Math.random() * 899999)),
+            title: `Перевод: ${recipientName}`,
+            subtitle: `${bank} • •${card.number.slice(-4)}`,
+            cardLast4: card.number.slice(-4),
+            amount: -amount,
+            currency: 'RUB',
+            category: 'transfer',
+            date: Date.now(),
+            status: 'Исполнено',
+            cashback: 0,
+            authCode: 'SP' + Math.floor(1000 + Math.random() * 8999)
+          };
+          state.transactions.unshift(tx);
+          prefillContact = null;
+          saveState();
+          openSuccessTransferModal(tx);
+          render();
+        }
+      });
+    }
+
+    function handleOwnTransferSubmit(e) {
+      e.preventDefault();
+      const fromId = document.getElementById('own-from').value;
+      const toId = document.getElementById('own-to').value;
+      const amount = parseFloat(document.getElementById('own-amount').value);
+      if (fromId === toId) return showToast('Выберите разные счета', 'error');
+
+      const fromCard = state.cards.find(c => c.id === fromId);
+      const toCard = state.cards.find(c => c.id === toId);
+      if (isNaN(amount) || amount <= 0 || amount > fromCard.balance) return showToast('Проверьте сумму и баланс', 'error');
+
+      let creditedAmount = amount;
+      if (fromCard.currency === 'RUB' && toCard.currency === 'USD') creditedAmount = +(amount / USD_RATE).toFixed(2);
+      else if (fromCard.currency === 'USD' && toCard.currency === 'RUB') creditedAmount = +(amount * USD_RATE).toFixed(2);
+
+      openConfirmTransferModal({
+        title: `На ${toCard.name}`,
+        subtitle: `Зачислится: ${formatMoney(creditedAmount, toCard.currency, true)}`,
+        fromCard,
+        amount,
+        currency: fromCard.currency,
+        onConfirm: () => {
+          fromCard.balance -= amount;
+          toCard.balance += creditedAmount;
+          const tx = {
+            id: String(Math.floor(100000 + Math.random() * 899999)),
+            title: `На счет: ${toCard.name}`,
+            subtitle: `С карты ${fromCard.name}`,
+            cardLast4: fromCard.number.slice(-4),
+            amount: -amount,
+            currency: fromCard.currency,
+            category: 'transfer',
+            date: Date.now(),
+            status: 'Исполнено',
+            cashback: 0,
+            authCode: 'IN' + Math.floor(1000 + Math.random() * 8999)
+          };
+          state.transactions.unshift(tx);
+          saveState();
+          openSuccessTransferModal(tx);
+          render();
+        }
+      });
+    }
+
+    function handleServiceSubmit(e) {
+      e.preventDefault();
+      const [cat, providerName] = document.getElementById('srv-provider').value.split('|');
+      const fromId = document.getElementById('srv-from').value;
+      const account = document.getElementById('srv-account').value.trim();
+      const amount = parseFloat(document.getElementById('srv-amount').value);
+
+      const card = state.cards.find(c => c.id === fromId);
+      if (isNaN(amount) || amount <= 0 || amount > card.balance) return showToast('Проверьте сумму и баланс', 'error');
+      const cb = calculateCashback(amount, cat);
+
+      openConfirmTransferModal({
+        title: providerName,
+        subtitle: `${account}${cb > 0 ? ` • Кэшбэк +${cb} ₽` : ''}`,
+        fromCard: card,
+        amount,
+        currency: 'RUB',
+        onConfirm: () => {
+          card.balance -= amount;
+          state.cashbackBalance += cb;
+          const tx = {
+            id: String(Math.floor(100000 + Math.random() * 899999)),
+            title: providerName,
+            subtitle: `${account} • •${card.number.slice(-4)}`,
+            cardLast4: card.number.slice(-4),
+            amount: -amount,
+            currency: 'RUB',
+            category: cat,
+            date: Date.now(),
+            status: 'Исполнено',
+            cashback: cb,
+            authCode: 'PY' + Math.floor(1000 + Math.random() * 8999)
+          };
+          state.transactions.unshift(tx);
+          saveState();
+          openSuccessTransferModal(tx);
+          render();
+        }
+      });
+    }
+
+    function claimCashback() {
+      if (state.cashbackBalance <= 0) return showToast('Нет доступного кэшбэка', 'info');
+      const amt = state.cashbackBalance;
+      state.cards[0].balance += amt;
+      state.cashbackBalance = 0;
+      state.transactions.unshift({
+        id: String(Math.floor(100000 + Math.random() * 899999)),
+        title: 'Выплата кэшбэка', subtitle: `На карту ${state.cards[0].name}`, cardLast4: state.cards[0].number.slice(-4),
+        amount: amt, currency: 'RUB', category: 'income', date: Date.now(), status: 'Зачислено', cashback: 0, authCode: 'CB1000'
+      });
+      saveState();
+      showToast(`+${formatMoney(amt, 'RUB', true)} зачислено на карту`);
+      render();
+    }
+
+    function toggleCashbackCategory(id) {
+      const idx = state.selectedCashbackIds.indexOf(id);
+      if (idx > -1) state.selectedCashbackIds.splice(idx, 1);
+      else {
+        if (state.selectedCashbackIds.length >= 3) return showToast('Максимум 3 категории', 'error');
+        state.selectedCashbackIds.push(id);
+      }
+      saveState();
+      render();
+    }
+
+    function resetDemoData() {
+      if (!confirm('Сбросить все балансы, карты и историю к начальному состоянию?')) return;
+      state = getDefaultState();
+      saveState();
+      showToast('Данные восстановлены', 'info');
+      navigate('dashboard');
+    }
+
+    // =========================================================================
+    // 8. МОДАЛЬНЫЕ ОКНА (iOS BOTTOM SHEET + PDF ПРОСМОТРЩИК ЧЕКА)
+    // =========================================================================
+    function showModal(html, maxW = 'sm:max-w-md') {
+      const root = document.getElementById('modal-root');
+      root.innerHTML = `
+        <div id="modal-backdrop" onclick="if(event.target.id==='modal-backdrop') closeModal()" class="fixed inset-0 z-50 bg-black/45 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div class="bg-white dark:bg-[#1C1C1E] w-full ${maxW} rounded-t-[30px] sm:rounded-[28px] p-5 sm:p-6 shadow-2xl border border-black/[0.06] dark:border-white/[0.1] animate-sheet max-h-[92vh] overflow-y-auto pb-safe">
+            <div class="sm:hidden w-9 h-1 rounded-full bg-slate-300 dark:bg-zinc-600 mx-auto mb-4"></div>
+            ${html}
+          </div>
+        </div>
+      `;
+    }
+
+    function closeModal() {
+      document.getElementById('modal-root').innerHTML = '';
+    }
+
+    // ПОДТВЕРЖДЕНИЕ ОПЕРАЦИИ
+    let pendingTransferConfirm = null;
+    function openConfirmTransferModal(opts) {
+      pendingTransferConfirm = opts.onConfirm;
+      showModal(`
+        <div class="text-center space-y-4">
+          <div class="w-12 h-12 rounded-2xl bg-[#007AFF]/12 text-[#007AFF] flex items-center justify-center mx-auto">
+            ${icon('shield', 'w-6 h-6')}
+          </div>
+          <div>
+            <h3 class="text-[18px] font-bold">Подтверждение</h3>
+            <p class="text-[13px] font-medium mt-0.5">${escapeHTML(opts.title)}</p>
+            <p class="text-[12px] text-[#8E8E93]">${escapeHTML(opts.subtitle)}</p>
+          </div>
+          <div class="p-4 rounded-[20px] bg-[#F2F2F7] dark:bg-[#2C2C2E]">
+            <div class="text-[11px] text-[#8E8E93] font-medium">Сумма списания</div>
+            <div class="text-[26px] font-bold tabular-nums mt-0.5">${formatMoney(opts.amount, opts.currency, true)}</div>
+            <div class="text-[11px] text-[#8E8E93] mt-1">${opts.fromCard.name} •• ${opts.fromCard.number.slice(-4)}</div>
+          </div>
+          <div class="text-left">
+            <label class="block text-[11px] font-semibold text-[#8E8E93] mb-1">SMS-код (демо: 0000)</label>
+            <input id="sms-code-input" type="text" value="0000" maxlength="4" class="w-full text-center tracking-[0.5em] font-mono font-bold text-[18px] py-2.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] outline-none" />
+          </div>
+          <div class="flex gap-2.5 pt-1">
+            <button onclick="closeModal()" class="flex-1 py-3 rounded-[16px] bg-[#F2F2F7] dark:bg-[#2C2C2E] font-semibold text-[14px]">Отмена</button>
+            <button id="confirm-tx-btn" onclick="executeConfirmedTransfer()" class="flex-1 py-3 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[14px]">Подтвердить</button>
+          </div>
+        </div>
+      `);
+    }
+
+    function executeConfirmedTransfer() {
+      const code = document.getElementById('sms-code-input').value.trim();
+      if (code.length < 4) return showToast('Введите 4 цифры (0000)', 'error');
+      const btn = document.getElementById('confirm-tx-btn');
+      btn.disabled = true;
+      btn.textContent = 'Отправка...';
+      setTimeout(() => {
+        if (pendingTransferConfirm) pendingTransferConfirm();
+        pendingTransferConfirm = null;
+      }, 450);
+    }
+
+    // ЭКРАН УСПЕШНОЙ ОПЕРАЦИИ С КНОПКОЙ PDF-ЧЕКА
+    function openSuccessTransferModal(tx) {
+      showModal(`
+        <div class="text-center space-y-4">
+          <div class="w-14 h-14 rounded-full bg-[#34C759]/15 text-[#34C759] flex items-center justify-center mx-auto">
+            ${icon('check', 'w-7 h-7', '2.5')}
+          </div>
+          <div>
+            <div class="text-[12px] font-bold uppercase tracking-wider text-[#34C759]">${tx.status}</div>
+            <h3 class="text-[28px] font-bold tabular-nums mt-0.5">${formatMoney(Math.abs(tx.amount), tx.currency, true)}</h3>
+            <p class="text-[14px] font-semibold mt-1">${escapeHTML(tx.title)}</p>
+            <p class="text-[12px] text-[#8E8E93]">${escapeHTML(tx.subtitle)}</p>
+          </div>
+          <div class="flex gap-2.5 pt-2">
+            <button onclick="openPdfPreviewModal('${tx.id}')" class="flex-1 py-3 rounded-[16px] bg-[#F2F2F7] dark:bg-[#2C2C2E] font-semibold text-[14px] flex items-center justify-center gap-2">
+              ${icon('pdf', 'w-4 h-4 text-[#007AFF]')}
+              <span>PDF-чек</span>
+            </button>
+            <button onclick="closeModal()" class="flex-1 py-3 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[14px]">Готово</button>
+          </div>
+        </div>
+      `);
+    }
+
+    // ДЕТАЛИ ТРАТЫ ПРИ НАЖАТИИ В СПИСКЕ + КНОПКА ПРОСМОТРА PDF
+    function openTxModal(txId) {
+      const tx = state.transactions.find(t => t.id === txId);
+      if (!tx) return;
+      const cat = CATEGORIES[tx.category] || CATEGORIES.shopping;
+      const isIncome = tx.amount > 0;
+      showModal(`
+        <div class="space-y-4">
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-3">
+              <div class="w-11 h-11 rounded-[14px] ${cat.bg} flex items-center justify-center">${icon(cat.icon, 'w-5 h-5')}</div>
+              <div>
+                <div class="font-bold text-[16px]">${escapeHTML(tx.title)}</div>
+                <div class="text-[12px] text-[#8E8E93]">${cat.label} • MCC ${cat.mcc}</div>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+
+          <div class="p-4 rounded-[20px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-center">
+            <div class="text-[28px] font-bold tabular-nums ${isIncome ? 'text-[#34C759]' : ''}">
+              ${isIncome ? '+' : ''}${formatMoney(tx.amount, tx.currency, true)}
+            </div>
+            <div class="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#34C759] mt-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
+              <span>${tx.status} • ${formatDate(tx.date)}</span>
+            </div>
+          </div>
+
+          <div class="bg-[#F2F2F7]/70 dark:bg-[#2C2C2E]/60 rounded-[18px] divide-y divide-black/[0.05] dark:divide-white/[0.06] text-[13px]">
+            <div class="flex justify-between px-4 py-2.5"><span class="text-[#8E8E93]">Карта / счет</span><span class="font-medium tabular-nums">•••• ${tx.cardLast4 || '9042'}</span></div>
+            <div class="flex justify-between px-4 py-2.5"><span class="text-[#8E8E93]">Детали</span><span class="font-medium">${escapeHTML(tx.subtitle)}</span></div>
+            <div class="flex justify-between px-4 py-2.5"><span class="text-[#8E8E93]">Кэшбэк</span><span class="font-semibold text-[#34C759] tabular-nums">+${tx.cashback || 0} ₽</span></div>
+            <div class="flex justify-between px-4 py-2.5"><span class="text-[#8E8E93]">Квитанция</span><span class="font-mono text-[12px]">NB-${tx.id}</span></div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="openPdfPreviewModal('${tx.id}')" class="py-3 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
+              ${icon('pdf', 'w-4 h-4')}
+              <span>PDF-чек</span>
+            </button>
+            <button onclick="closeModal(); navigate('transfers')" class="py-3 rounded-[16px] bg-[#F2F2F7] dark:bg-[#2C2C2E] font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
+              ${icon('refresh', 'w-4 h-4')}
+              <span>Повторить</span>
+            </button>
+          </div>
+        </div>
+      `);
+    }
+
+    // ВСТРОЕННЫЙ ПРОСМОТРЩИК PDF-ДОКУМЕНТА (QUICKLOOK STYLE)
+    function openPdfPreviewModal(txId) {
+      const tx = state.transactions.find(t => t.id === txId);
+      if (!tx) return;
+      const cat = CATEGORIES[tx.category] || CATEGORIES.shopping;
+      const isIncome = tx.amount > 0;
+
+      showModal(`
+        <div class="space-y-4">
+          <!-- ПАНЕЛЬ ИНСТРУМЕНТОВ PDF VIEWER -->
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <div class="w-8 h-8 rounded-[10px] bg-[#FF3B30]/12 text-[#FF3B30] flex items-center justify-center shrink-0">${icon('pdf', 'w-4 h-4')}</div>
+              <div class="min-w-0">
+                <div class="text-[13px] font-bold truncate">NeoBank_Cheque_${tx.id}.pdf</div>
+                <div class="text-[11px] text-[#8E8E93]">PDF Документ • Формат A4</div>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93] shrink-0">${icon('close', 'w-4 h-4')}</button>
+          </div>
+
+          <!-- ХОЛСТ ПРЕВЬЮ ДОКУМЕНТА A4 -->
+          <div class="bg-[#E5E5EA] dark:bg-[#0A0A0C] p-3 sm:p-4 rounded-[20px] max-h-[55vh] overflow-y-auto border border-black/[0.06] dark:border-white/[0.06]">
+            <div id="pdf-sheet-preview" class="bg-white text-slate-900 rounded-[12px] p-5 sm:p-6 shadow-md mx-auto max-w-[440px] space-y-4 text-[12px] border-t-4 border-[#007AFF]">
+
+              <!-- Шапка чека -->
+              <div class="flex justify-between items-start border-b border-slate-100 pb-3">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-[#007AFF] text-white flex items-center justify-center font-bold text-[13px]">N</div>
+                  <div>
+                    <div class="font-bold text-[14px] leading-none">NeoBank</div>
+                    <div class="text-[9px] text-slate-400 mt-0.5">БИК 044525999</div>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-[9px] font-bold text-slate-400 uppercase">Квитанция</div>
+                  <div class="font-mono font-bold text-[11px]">№ NB-${tx.id}</div>
+                </div>
+              </div>
+
+              <!-- Блок суммы -->
+              <div class="bg-[#F2F2F7] rounded-xl p-3 text-center">
+                <div class="text-[10px] font-semibold text-slate-500 uppercase">${isIncome ? 'Зачислено' : 'Списано'}</div>
+                <div class="text-[22px] font-extrabold tabular-nums mt-0.5 ${isIncome ? 'text-emerald-600' : 'text-slate-900'}">
+                  ${isIncome ? '+' : ''}${formatMoney(tx.amount, tx.currency, true)}
+                </div>
+                <div class="text-[10px] font-bold text-emerald-600 mt-0.5">● ${tx.status.toUpperCase()}</div>
+              </div>
+
+              <!-- Таблица реквизитов -->
+              <div class="divide-y divide-slate-100 text-[11px]">
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Дата и время</span><span class="font-medium tabular-nums">${formatFullDate(tx.date)}</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Получатель / ТСП</span><span class="font-semibold text-right ml-2">${escapeHTML(tx.title)}</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Детали</span><span class="font-medium text-right ml-2">${escapeHTML(tx.subtitle)}</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Плательщик</span><span class="font-medium">Соколов А.С.</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Счет / Карта</span><span class="font-mono">•••• ${tx.cardLast4 || '9042'}</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Категория</span><span class="font-medium">${cat.label} (${cat.mcc})</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Комиссия</span><span class="font-medium">0,00 ₽</span></div>
+                <div class="flex justify-between py-1.5"><span class="text-slate-500">Код авторизации</span><span class="font-mono">${tx.authCode || 'NB001'}</span></div>
+              </div>
+
+              <!-- QR и Векторная синяя печать -->
+              <div class="flex items-center justify-between pt-2 border-t border-dashed border-slate-200">
+                <div class="flex items-center gap-2.5">
+                  <div class="p-1.5 border border-slate-200 rounded-lg bg-white">
+                    ${renderQRSVG(tx.id + tx.title, 'w-14 h-14')}
+                  </div>
+                  <div class="text-[9px] text-slate-400 leading-tight">
+                    Проверка ЭЦП<br/>NB-DEMO-SIGN<br/>${new Date(tx.date).toLocaleDateString('ru-RU')}
+                  </div>
+                </div>
+
+                <!-- Векторная круглая печать банка -->
+                <svg class="w-20 h-20 -rotate-12 shrink-0" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" r="44" fill="none" stroke="#1D4ED8" stroke-width="2.5" opacity="0.85"/>
+                  <circle cx="50" cy="50" r="38" fill="none" stroke="#1D4ED8" stroke-width="1" opacity="0.85"/>
+                  <text x="50" y="33" text-anchor="middle" fill="#1D4ED8" font-size="6.5" font-weight="800" font-family="sans-serif">ПАО «НЕОБАНК»</text>
+                  <text x="50" y="53" text-anchor="middle" fill="#1D4ED8" font-size="9" font-weight="800" font-family="sans-serif">ИСПОЛНЕНО</text>
+                  <text x="50" y="68" text-anchor="middle" fill="#1D4ED8" font-size="6" font-weight="600" font-family="sans-serif">ДЕМО-ЭЦП</text>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- КНОПКИ СКАЧАТЬ / ПЕЧАТЬ -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="downloadReceiptPDF('${tx.id}')" class="py-3 rounded-[16px] bg-[#007AFF] hover:bg-[#0066D6] text-white font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
+              ${icon('download', 'w-4 h-4')}
+              <span>Скачать PDF</span>
+            </button>
+            <button onclick="printReceipt('${tx.id}')" class="py-3 rounded-[16px] bg-[#F2F2F7] dark:bg-[#2C2C2E] font-semibold text-[14px] flex items-center justify-center gap-2 active:scale-[0.98] transition">
+              ${icon('printer', 'w-4 h-4')}
+              <span>Печать</span>
+            </button>
+          </div>
+        </div>
+      `, 'sm:max-w-lg');
+    }
+
+    function printReceipt(txId) {
+      const el = document.getElementById('pdf-sheet-preview');
+      if (!el) return;
+      const win = window.open('', '_blank', 'width=600,height=800');
+      if (!win) {
+        window.print();
+        return;
+      }
+      win.document.write(`
+        <!DOCTYPE html><html><head><title>Чек NeoBank #${txId}</title>
+        <script src="https://cdn.tailwindcss.com"><\/script>
+        </head><body class="p-8 bg-white">${el.outerHTML}
+        <script>setTimeout(() => { window.print(); }, 400);<\/script></body></html>
+      `);
+      win.document.close();
+    }
+
+    // УПРАВЛЕНИЕ КАРТОЙ
+    let showCardCvv = false;
+    function openCardModal(cardId) {
+      selectedCardDetailsId = cardId;
+      showCardCvv = false;
+      renderCardModalContent();
+    }
+
+    function renderCardModalContent() {
+      const c = state.cards.find(x => x.id === selectedCardDetailsId);
+      if (!c) return;
+      showModal(`
+        <div class="space-y-5">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">${c.name}</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+
+          <div class="rounded-[24px] p-5 text-white bg-gradient-to-br ${c.gradient} card-sheen space-y-4 border border-white/10">
+            <div class="flex justify-between text-[12px] text-white/75">
+              <span>${c.type}</span>
+              <span class="font-bold">${c.currency}</span>
+            </div>
+            <div class="text-[24px] font-bold tabular-nums">${formatMoney(c.balance, c.currency, true)}</div>
+            <div class="font-mono text-[15px] tracking-wider tabular-nums">${showCardCvv ? c.number : '•••• •••• •••• ' + c.number.slice(-4)}</div>
+            <div class="flex justify-between text-[12px] font-mono text-white/80 tabular-nums">
+              <span>СРОК: ${c.expiry}</span>
+              <span>CVV: ${showCardCvv ? c.cvv : '•••'}</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2.5">
+            <button onclick="showCardCvv=!showCardCvv; renderCardModalContent()" class="py-2.5 px-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[12px] font-semibold flex items-center justify-center gap-2">
+              ${icon(showCardCvv ? 'eyeOff' : 'eye', 'w-4 h-4 text-[#007AFF]')}
+              <span>${showCardCvv ? 'Скрыть' : 'Реквизиты'}</span>
+            </button>
+            <button onclick="navigator.clipboard?.writeText('${c.number}'); showToast('Номер карты скопирован')" class="py-2.5 px-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[12px] font-semibold flex items-center justify-center gap-2">
+              ${icon('copy', 'w-4 h-4 text-[#007AFF]')}
+              <span>Копировать</span>
+            </button>
+          </div>
+
+          <div class="p-4 rounded-[20px] bg-[#F2F2F7] dark:bg-[#2C2C2E] space-y-3">
+            <div class="flex justify-between text-[13px]">
+              <span class="font-medium">Дневной лимит</span>
+              <span id="card-limit-label" class="font-bold text-[#007AFF] tabular-nums">${formatMoney(c.limit, c.currency, true)}</span>
+            </div>
+            <input type="range" min="${c.currency==='USD'?100:5000}" max="${c.currency==='USD'?10000:500000}" step="${c.currency==='USD'?100:5000}" value="${c.limit}" oninput="updateCardLimit('${c.id}', this.value)" class="w-full ios-slider" />
+          </div>
+
+          <button onclick="toggleFreezeCard('${c.id}')" class="w-full py-3.5 rounded-[16px] font-semibold text-[14px] flex items-center justify-center gap-2 transition ${c.frozen ? 'bg-[#007AFF] text-white' : 'bg-[#FF3B30]/12 text-[#FF3B30]'}">
+            ${icon('snowflake', 'w-4 h-4')}
+            <span>${c.frozen ? 'Разморозить карту' : 'Заморозить карту'}</span>
+          </button>
+        </div>
+      `);
+    }
+
+    function updateCardLimit(cardId, val) {
+      const c = state.cards.find(x => x.id === cardId);
+      if (c) {
+        c.limit = Number(val);
+        saveState();
+        const lbl = document.getElementById('card-limit-label');
+        if (lbl) lbl.textContent = formatMoney(c.limit, c.currency, true);
+      }
+    }
+
+    function toggleFreezeCard(cardId) {
+      const c = state.cards.find(x => x.id === cardId);
+      if (c) {
+        c.frozen = !c.frozen;
+        saveState();
+        showToast(c.frozen ? 'Карта заморожена' : 'Карта активна', 'info');
+        renderCardModalContent();
+        render();
+      }
+    }
+
+    // ПОПОЛНЕНИЕ
+    function openTopUpModal() {
+      showModal(`
+        <form onsubmit="handleTopUp(event)" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Пополнение счета</h3>
+            <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <p class="text-[12px] text-[#8E8E93]">Мгновенное пополнение с привязанной карты (демо-режим).</p>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Карта зачисления</label>
+            <select id="topup-card" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium">
+              ${state.cards.map(c => `<option value="${c.id}">${c.name} (${c.currency})</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Сумма</label>
+            <input id="topup-amount" type="number" min="1" step="0.01" required value="10000" class="w-full px-4 py-3.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[22px] font-bold tabular-nums" />
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[15px]">Пополнить</button>
+        </form>
+      `);
+    }
+
+    function handleTopUp(e) {
+      e.preventDefault();
+      const cardId = document.getElementById('topup-card').value;
+      const amount = parseFloat(document.getElementById('topup-amount').value);
+      const card = state.cards.find(c => c.id === cardId);
+      if (!card || isNaN(amount) || amount <= 0) return;
+
+      card.balance += amount;
+      state.transactions.unshift({
+        id: String(Math.floor(100000 + Math.random() * 899999)),
+        title: `Пополнение: ${card.name}`, subtitle: 'Внешняя карта •4410', cardLast4: card.number.slice(-4),
+        amount: amount, currency: card.currency, category: 'income', date: Date.now(), status: 'Зачислено', cashback: 0, authCode: 'TP9001'
+      });
+      saveState();
+      closeModal();
+      showToast(`+${formatMoney(amount, card.currency, true)} зачислено`);
+      render();
+    }
+
+    // ОБМЕН ВАЛЮТ
+    function openExchangeModal() {
+      showModal(`
+        <form onsubmit="handleExchange(event)" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Обмен валют</h3>
+            <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <div class="p-3 rounded-[14px] bg-[#007AFF]/10 text-[#007AFF] text-[13px] font-semibold text-center tabular-nums">
+            Курс: 1 USD = ${USD_RATE} ₽
+          </div>
+          <select id="ex-dir" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] font-medium">
+            <option value="rub_usd">Купить USD за RUB (Neo Black → Travel USD)</option>
+            <option value="usd_rub">Продать USD за RUB (Travel USD → Neo Black)</option>
+          </select>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Сумма в USD ($)</label>
+            <input id="ex-usd" type="number" min="1" step="1" required value="100" class="w-full px-4 py-3.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[22px] font-bold tabular-nums" />
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#34C759] text-white font-semibold text-[15px]">Обменять</button>
+        </form>
+      `);
+    }
+
+    function handleExchange(e) {
+      e.preventDefault();
+      const dir = document.getElementById('ex-dir').value;
+      const usd = parseFloat(document.getElementById('ex-usd').value);
+      const rubAmount = +(usd * USD_RATE).toFixed(2);
+      const rubCard = state.cards.find(c => c.id === 'card_rub');
+      const usdCard = state.cards.find(c => c.id === 'card_usd');
+
+      if (dir === 'rub_usd') {
+        if (rubAmount > rubCard.balance) return showToast('Недостаточно RUB', 'error');
+        rubCard.balance -= rubAmount;
+        usdCard.balance += usd;
+        state.transactions.unshift({
+          id: String(Math.floor(100000 + Math.random() * 899999)),
+          title: `Покупка $${usd}`, subtitle: `Курс ${USD_RATE} ₽`, cardLast4: '9042',
+          amount: -rubAmount, currency: 'RUB', category: 'transfer', date: Date.now(), status: 'Исполнено', cashback: 0, authCode: 'FX0102'
+        });
+      } else {
+        if (usd > usdCard.balance) return showToast('Недостаточно USD', 'error');
+        usdCard.balance -= usd;
+        rubCard.balance += rubAmount;
+        state.transactions.unshift({
+          id: String(Math.floor(100000 + Math.random() * 899999)),
+          title: `Продажа $${usd}`, subtitle: `Курс ${USD_RATE} ₽`, cardLast4: '3318',
+          amount: rubAmount, currency: 'RUB', category: 'income', date: Date.now(), status: 'Зачислено', cashback: 0, authCode: 'FX0103'
+        });
+      }
+      saveState();
+      closeModal();
+      showToast('Обмен выполнен');
+      render();
+    }
+
+    // QR-ОПЛАТА ЗАГЛУШКА
+    function openQRStubModal() {
+      showModal(`
+        <div class="text-center space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Оплата по СБП QR</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <div class="w-44 h-44 mx-auto rounded-[28px] bg-slate-950 text-white flex flex-col items-center justify-center border-2 border-[#007AFF] gap-2 p-4">
+            ${icon('qr', 'w-14 h-14 text-[#007AFF]')}
+            <span class="text-[11px] text-white/60 leading-tight">Имитация сканера. Нажмите ниже для тестовой оплаты:</span>
+          </div>
+          <button onclick="payMockQR('Кофейня Surf (СБП)', 420, 'food')" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[14px]">Оплатить кофе — 420 ₽</button>
+        </div>
+      `);
+    }
+
+    function payMockQR(title, amount, cat) {
+      const card = state.cards[0];
+      if (card.frozen || card.balance < amount) return showToast('Проверьте баланс или статус карты', 'error');
+      const cb = calculateCashback(amount, cat);
+      card.balance -= amount;
+      state.cashbackBalance += cb;
+      const tx = {
+        id: String(Math.floor(100000 + Math.random() * 899999)),
+        title, subtitle: 'Оплата по СБП QR', cardLast4: card.number.slice(-4),
+        amount: -amount, currency: 'RUB', category: cat, date: Date.now(), status: 'Исполнено', cashback: cb, authCode: 'QR7781'
+      };
+      state.transactions.unshift(tx);
+      saveState();
+      openSuccessTransferModal(tx);
+      render();
+    }
+
+    // ЦЕЛИ (КОПИЛКИ)
+    function openNewGoalModal() {
+      showModal(`
+        <form onsubmit="createGoal(event)" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Новая цель</h3>
+            <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Название</label>
+            <input id="goal-title" type="text" required placeholder="Покупка авто" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px]" />
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Иконка</label>
+            <select id="goal-icon" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px]">
+              <option value="target">Цель</option>
+              <option value="plane">Путешествие</option>
+              <option value="laptop">Техника</option>
+              <option value="transport">Автомобиль</option>
+              <option value="house">Недвижимость</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] font-semibold text-[#8E8E93] mb-1.5">Целевая сумма (₽)</label>
+            <input id="goal-target" type="number" min="1000" required value="100000" class="w-full px-4 py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[20px] font-bold tabular-nums" />
+          </div>
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[15px]">Создать</button>
+        </form>
+      `);
+    }
+
+    function createGoal(e) {
+      e.preventDefault();
+      const title = document.getElementById('goal-title').value.trim();
+      const iconName = document.getElementById('goal-icon').value;
+      const target = parseFloat(document.getElementById('goal-target').value);
+      state.goals.push({ id: 'g_' + Date.now(), title, icon: iconName, target, current: 0 });
+      saveState();
+      closeModal();
+      showToast('Цель создана');
+      render();
+    }
+
+    function openGoalActionModal(goalId, action) {
+      const g = state.goals.find(x => x.id === goalId);
+      if (!g) return;
+      const isAdd = action === 'add';
+      showModal(`
+        <form onsubmit="handleGoalAction(event, '${goalId}', '${action}')" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">${isAdd ? 'Пополнить цель' : 'Снять с цели'}</h3>
+            <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <div class="text-[13px] text-[#8E8E93]">${escapeHTML(g.title)} • Накоплено: ${formatMoney(g.current, 'RUB', true)}</div>
+          <input id="goal-amt" type="number" min="1" required value="5000" class="w-full px-4 py-3.5 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[22px] font-bold tabular-nums" />
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[15px]">${isAdd ? 'Пополнить с Neo Black' : 'Перевести на Neo Black'}</button>
+        </form>
+      `);
+    }
+
+    function handleGoalAction(e, goalId, action) {
+      e.preventDefault();
+      const amt = parseFloat(document.getElementById('goal-amt').value);
+      const g = state.goals.find(x => x.id === goalId);
+      const card = state.cards[0];
+
+      if (action === 'add') {
+        if (amt > card.balance) return showToast('Недостаточно средств на карте', 'error');
+        card.balance -= amt;
+        g.current += amt;
+        state.transactions.unshift({ id: String(Math.floor(100000 + Math.random() * 899999)), title: `В копилку: ${g.title}`, subtitle: 'Накопительный счет', cardLast4: '9042', amount: -amt, currency: 'RUB', category: 'transfer', date: Date.now(), status: 'Исполнено', cashback: 0 });
+      } else {
+        if (amt > g.current) return showToast('Недостаточно средств в цели', 'error');
+        g.current -= amt;
+        card.balance += amt;
+        state.transactions.unshift({ id: String(Math.floor(100000 + Math.random() * 899999)), title: `Из копилки: ${g.title}`, subtitle: 'Возврат на карту', cardLast4: '9042', amount: amt, currency: 'RUB', category: 'income', date: Date.now(), status: 'Зачислено', cashback: 0 });
+      }
+      saveState();
+      closeModal();
+      showToast('Баланс цели обновлен');
+      render();
+    }
+
+    // ДЕМО-КРЕДИТ
+    function openLoanModal() {
+      showModal(`
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Кредитный калькулятор</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <div>
+            <div class="flex justify-between text-[13px] font-semibold mb-2"><span>Сумма</span><span id="loan-val-lbl" class="text-[#007AFF] tabular-nums">100 000 ₽</span></div>
+            <input id="loan-amt" type="range" min="10000" max="1000000" step="10000" value="100000" oninput="updateLoanCalc()" class="w-full ios-slider" />
+          </div>
+          <div>
+            <div class="flex justify-between text-[13px] font-semibold mb-2"><span>Срок</span><span id="loan-term-lbl" class="text-[#007AFF] tabular-nums">12 мес.</span></div>
+            <input id="loan-term" type="range" min="6" max="60" step="6" value="12" oninput="updateLoanCalc()" class="w-full ios-slider" />
+          </div>
+          <div class="p-4 rounded-[18px] bg-[#F2F2F7] dark:bg-[#2C2C2E] flex justify-between items-center">
+            <span class="text-[12px] text-[#8E8E93]">Платеж в месяц (14.9%)</span>
+            <span id="loan-monthly" class="text-[18px] font-bold tabular-nums">9 021 ₽</span>
+          </div>
+          <button onclick="approveMockLoan()" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[15px]">Зачислить на карту</button>
+        </div>
+      `);
+    }
+
+    function updateLoanCalc() {
+      const amt = Number(document.getElementById('loan-amt').value);
+      const term = Number(document.getElementById('loan-term').value);
+      const r = 0.149 / 12;
+      const pay = Math.round((amt * r * Math.pow(1 + r, term)) / (Math.pow(1 + r, term) - 1));
+      document.getElementById('loan-val-lbl').textContent = formatMoney(amt, 'RUB', true);
+      document.getElementById('loan-term-lbl').textContent = `${term} мес.`;
+      document.getElementById('loan-monthly').textContent = formatMoney(pay, 'RUB', true);
+    }
+
+    function approveMockLoan() {
+      const amt = Number(document.getElementById('loan-amt').value);
+      state.cards[0].balance += amt;
+      state.transactions.unshift({
+        id: String(Math.floor(100000 + Math.random() * 899999)),
+        title: 'Выдача демо-кредита', subtitle: 'Договор #DEMO', cardLast4: '9042',
+        amount: amt, currency: 'RUB', category: 'income', date: Date.now(), status: 'Зачислено', cashback: 0, authCode: 'LN01'
+      });
+      saveState();
+      closeModal();
+      showToast(`+${formatMoney(amt, 'RUB', true)} зачислено`);
+      render();
+    }
+
+    // УВЕДОМЛЕНИЯ
+    function openNotificationsModal() {
+      state.notifications.forEach(n => n.unread = false);
+      saveState();
+      renderNavigation();
+      showModal(`
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Уведомления</h3>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <div class="space-y-2.5">
+            ${state.notifications.map(n => `
+              <div class="p-3.5 rounded-[18px] bg-[#F2F2F7] dark:bg-[#2C2C2E]">
+                <div class="flex justify-between text-[13px] font-semibold mb-1">
+                  <span>${escapeHTML(n.title)}</span>
+                  <span class="text-[#8E8E93] font-normal text-[11px]">${n.time}</span>
+                </div>
+                <p class="text-[12px] text-[#8E8E93] leading-relaxed">${escapeHTML(n.text)}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `);
+    }
+
+    // СМЕНА PIN
+    function openChangePinModal() {
+      showModal(`
+        <form onsubmit="handleChangePin(event)" class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h3 class="font-bold text-[18px]">Новый код-пароль</h3>
+            <button type="button" onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+          <input id="new-pin-input" type="text" pattern="\\d{4}" maxlength="4" required placeholder="••••" class="w-full text-center text-[24px] tracking-[0.5em] font-mono py-3 rounded-[14px] bg-[#F2F2F7] dark:bg-[#2C2C2E]" />
+          <button type="submit" class="w-full py-3.5 rounded-[16px] bg-[#007AFF] text-white font-semibold text-[15px]">Сохранить</button>
+        </form>
+      `);
+    }
+
+    function handleChangePin(e) {
+      e.preventDefault();
+      const val = document.getElementById('new-pin-input').value.trim();
+      if (!/^\d{4}$/.test(val)) return showToast('Введите 4 цифры', 'error');
+      state.pin = val;
+      saveState();
+      closeModal();
+      showToast('Код-пароль обновлен');
+    }
+
+    // iMessage ЧАТ С ПОДДЕРЖКОЙ
+    function openSupportModal() {
+      showModal(`
+        <div class="flex flex-col h-[72vh] sm:h-[480px]">
+          <div class="flex justify-between items-center pb-3 border-b border-black/[0.06] dark:border-white/[0.08]">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-full bg-gradient-to-br from-[#007AFF] to-[#5856D6] text-white flex items-center justify-center">
+                ${icon('sparkle', 'w-4 h-4')}
+              </div>
+              <div>
+                <div class="font-bold text-[14px]">Поддержка NeoBank</div>
+                <div class="text-[11px] text-[#34C759] font-medium">Онлайн</div>
+              </div>
+            </div>
+            <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] flex items-center justify-center text-[#8E8E93]">${icon('close', 'w-4 h-4')}</button>
+          </div>
+
+          <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-2.5 no-scrollbar">
+            ${renderChatMessages()}
+          </div>
+
+          <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-2">
+            ${['Где PDF-чек?', 'Курс валют', 'Кэшбэк', 'Карты'].map(q => `
+              <button type="button" onclick="quickAskBot('${q}')" class="shrink-0 px-3 py-1 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[11px] font-medium text-[#007AFF]">${q}</button>
+            `).join('')}
+          </div>
+
+          <form onsubmit="sendChatMessage(event)" class="pt-2 border-t border-black/[0.06] dark:border-white/[0.08] flex gap-2">
+            <input id="chat-input" type="text" required placeholder="iMessage..." class="flex-1 px-4 py-2.5 rounded-full bg-[#F2F2F7] dark:bg-[#2C2C2E] text-[14px] outline-none" />
+            <button type="submit" class="w-10 h-10 rounded-full bg-[#007AFF] text-white flex items-center justify-center shrink-0">
+              ${icon('send', 'w-4 h-4')}
+            </button>
+          </form>
+        </div>
+      `);
+      scrollChatToBottom();
+    }
+
+    function renderChatMessages() {
+      return state.supportChat.map(m => `
+        <div class="flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}">
+          <div class="max-w-[82%] px-3.5 py-2.5 rounded-[20px] text-[13px] leading-snug ${m.sender === 'user' ? 'bg-[#007AFF] text-white rounded-br-[6px]' : 'bg-[#E9E9EB] dark:bg-[#2C2C2E] rounded-bl-[6px]'}">
+            ${escapeHTML(m.text)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function scrollChatToBottom() {
+      const el = document.getElementById('chat-messages');
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+
+    function quickAskBot(text) {
+      const inp = document.getElementById('chat-input');
+      if (inp) {
+        inp.value = text;
+        sendChatMessage({ preventDefault: () => {} });
+      }
+    }
+
+    function sendChatMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      state.supportChat.push({ sender: 'user', text, time: 'Сейчас' });
+      input.value = '';
+      document.getElementById('chat-messages').innerHTML = renderChatMessages();
+      scrollChatToBottom();
+
+      setTimeout(() => {
+        const q = text.toLowerCase();
+        let reply = 'Я могу подсказать про PDF-чеки, карты, переводы, кэшбэк или текущий курс доллара.';
+        if (q.includes('чек') || q.includes('пдф') || q.includes('pdf')) reply = 'Нажмите на любую операцию на Главной или в Истории, затем выберите «PDF-чек». Его можно посмотреть внутри или скачать в формате .pdf с печатью и QR-кодом!';
+        else if (q.includes('карт')) reply = 'Нажмите на любую карту в Кошельке, чтобы показать CVV, скопировать номер, изменить лимит или заморозить её.';
+        else if (q.includes('перевод')) reply = 'Переводы по СБП проходят мгновенно и без комиссии. Тестовый SMS-код для подтверждения — 0000.';
+        else if (q.includes('кэшбэк')) reply = 'Выберите до 3 категорий в разделе «Сервисы», затем оплатите любую услугу — кэшбэк начислится сразу.';
+        else if (q.includes('курс') || q.includes('валют')) reply = `Текущий курс обмена: 1 USD = ${USD_RATE} ₽.`;
+
+        state.supportChat.push({ sender: 'bot', text: reply, time: 'Сейчас' });
+        saveState();
+        const box = document.getElementById('chat-messages');
+        if (box) {
+          box.innerHTML = renderChatMessages();
+          scrollChatToBottom();
+        }
+      }, 400);
+    }
+
+    applyTheme();
+  </script>
+</body>
+</html>
